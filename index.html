@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Osterbiersuche 🍺</title>
+  <meta name="description" content="Die offizielle Osterbiersuche App" />
+  <meta name="theme-color" content="#1B3022" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="icon" href="/icon-192.png" />
+
+  <!-- Firebase (kein Storage!) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <!-- Fonts & Icons -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,700;6..72,800&family=Work+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "outline-variant": "#c3c8c1",
+            "surface-container-highest": "#e5e2dd",
+            "tertiary": "#291007",
+            "surface-tint": "#4d6453",
+            "on-secondary-container": "#6d5000",
+            "primary-container": "#1b3022",
+            "on-error": "#ffffff",
+            "tertiary-container": "#41241a",
+            "on-surface-variant": "#434843",
+            "error-container": "#ffdad6",
+            "surface-bright": "#fcf9f4",
+            "outline": "#737973",
+            "tertiary-fixed": "#ffdbcf",
+            "primary": "#061b0e",
+            "on-surface": "#1c1c19",
+            "secondary-container": "#ffbf00",
+            "primary-fixed": "#d0e9d4",
+            "surface-container-lowest": "#ffffff",
+            "surface-variant": "#e5e2dd",
+            "surface": "#fcf9f4",
+            "on-secondary": "#ffffff",
+            "surface-container-high": "#ebe8e3",
+            "tertiary-fixed-dim": "#ebbcac",
+            "on-tertiary": "#ffffff",
+            "on-primary": "#ffffff",
+            "on-primary-container": "#819986",
+            "surface-container": "#f0ede8",
+            "inverse-on-surface": "#f3f0eb",
+            "secondary-fixed": "#ffdfa0",
+            "background": "#fcf9f4",
+            "on-background": "#1c1c19",
+            "error": "#ba1a1a",
+            "secondary": "#795900",
+            "surface-dim": "#dcdad5",
+            "inverse-primary": "#b4cdb8",
+            "on-tertiary-container": "#b3897a",
+            "surface-container-low": "#f6f3ee",
+          },
+          fontFamily: {
+            "headline": ["Newsreader", "serif"],
+            "body": ["Work Sans", "sans-serif"],
+            "label": ["Work Sans", "sans-serif"]
+          },
+          borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .filled-icon {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    body {
+      font-family: 'Work Sans', sans-serif;
+      background-color: #fcf9f4;
+      min-height: 100dvh;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: 'Newsreader', serif;
+    }
+
+    /* Pages */
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    /* Auth page */
+    #page-auth {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100dvh;
+      padding: 40px 24px;
+    }
+
+    #page-auth.hidden {
+      display: none;
+    }
+
+    /* Loading */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: #fcf9f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .loading-bounce {
+      animation: bounce 1s infinite alternate;
+      font-size: 4rem;
+    }
+
+    @keyframes bounce {
+      from {
+        transform: translateY(0);
+      }
+
+      to {
+        transform: translateY(-14px);
+      }
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 96px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1B3022;
+      color: #f1c40f;
+      padding: 12px 22px;
+      border-radius: 100px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      z-index: 2000;
+      white-space: nowrap;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      font-family: 'Work Sans', sans-serif;
+    }
+
+    #toast.hidden {
+      opacity: 0;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: #fcf9f4;
+      border-radius: 20px 20px 0 0;
+      padding: 24px 24px max(24px, env(safe-area-inset-bottom));
+      width: 100%;
+      max-height: 92vh;
+      overflow-y: auto;
+      transform: translateY(24px);
+      transition: transform 0.25s;
+    }
+
+    .modal-overlay.open .modal {
+      transform: translateY(0);
+    }
+
+    .modal-handle {
+      width: 36px;
+      height: 4px;
+      background: #c3c8c1;
+      border-radius: 2px;
+      margin: 0 auto 20px;
+    }
+
+    /* Konfetti */
+    .konfetti-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9000;
+      overflow: hidden;
+    }
+
+    .konfetti-piece {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      animation: kfall linear forwards;
+    }
+
+    @keyframes kfall {
+      0% {
+        transform: translateY(-20px) rotate(0deg);
+        opacity: 1
+      }
+
+      100% {
+        transform: translateY(110vh) rotate(720deg);
+        opacity: 0
+      }
+    }
+
+    /* Theme overrides */
+    body.theme-dark {
+      background-color: #0d1f14 !important;
+    }
+
+    body.theme-dark .bg-\[#fcf9f4\] {
+      background-color: #0d1f14 !important;
+    }
+
+    body.theme-spring {
+      background-color: #f0fdf4 !important;
+    }
+
+    /* Input focus ring */
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      ring: none;
+      border-color: #ffbf00 !important;
+      box-shadow: 0 0 0 2px rgba(255, 191, 0, 0.3);
+    }
+
+    /* Drink emoji icon */
+    .drink-emoji-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: #f0ede8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+
+<body class="text-on-background selection:bg-secondary-container">
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loading-bounce">🍺</div>
+    <p style="color:#1B3022;font-family:'Newsreader',serif;margin-top:16px;font-size:1.2rem;">Osterbiersuche wird
+      geladen…</p>
+  </div>
+
+  <!-- Toast -->
+  <div class="hidden" id="toast"></div>
+
+  <!-- Konfetti -->
+  <div class="konfetti-container" id="konfetti"></div>
+
+  <!-- ==============================
+     AUTH PAGE
+     ============================== -->
+  <div id="page-auth" class="hidden" style="background: linear-gradient(160deg, #fcf9f4 0%, #fdeac7 100%);">
+    <div style="font-size:4.5rem;margin-bottom:16px;">🐣</div>
+    <h1 style="font-family:'Newsreader',serif;font-size:2.4rem;color:#061b0e;text-align:center;margin-bottom:6px;">
+      Osterbiersuche</h1>
+    <p style="color:#737973;text-align:center;margin-bottom:32px;font-size:0.9rem;">Karfreitag, 3. April 2026</p>
+
+    <div
+      style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 4px 24px rgba(6,27,14,0.1);">
+      <!-- Tabs -->
+      <div style="display:flex;border-bottom:2px solid #e5e2dd;margin-bottom:24px;">
+        <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')"
+          style="flex:1;padding:10px;text-align:center;cursor:pointer;font-weight:600;font-size:0.9rem;color:#434843;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:'Work Sans',sans-serif;">
+          Anmelden
+        </button>
+        <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')"
+          style="flex:1;padding:10px;text-align:center;cursor:pointer;font-weight:600;font-size:0.9rem;color:#434843;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:'Work Sans',sans-serif;">
+          Registrieren
+        </button>
+      </div>
+
+      <!-- Login -->
+      <div id="auth-login">
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">E-Mail</label>
+          <input type="email" id="login-email" placeholder="deine@email.de"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <div style="margin-bottom:20px;">
+          <label
+            style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Passwort</label>
+          <input type="password" id="login-pw" placeholder="••••••••"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <button onclick="doLogin()"
+          style="width:100%;background:#1B3022;color:#f1c40f;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:0.95rem;font-weight:700;font-family:'Work Sans',sans-serif;">
+          Anmelden 🍺
+        </button>
+        <p style="text-align:center;margin-top:12px;font-size:0.78rem;color:#737973;">
+          <a href="#" onclick="doPasswordReset()" style="color:#795900;">Passwort vergessen?</a>
+        </p>
+      </div>
+
+      <!-- Register -->
+      <div id="auth-register" style="display:none;">
+        <div style="margin-bottom:14px;">
+          <label
+            style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Anzeigename</label>
+          <input type="text" id="reg-name" placeholder="z.B. Hannes"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">E-Mail</label>
+          <input type="email" id="reg-email" placeholder="deine@email.de"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Passwort (min.
+            6 Zeichen)</label>
+          <input type="password" id="reg-pw" placeholder="••••••••"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <button onclick="doRegister()"
+          style="width:100%;background:#1B3022;color:#f1c40f;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:0.95rem;font-weight:700;font-family:'Work Sans',sans-serif;">
+          Account erstellen 🐰
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================
+     MAIN APP
+     ============================== -->
+  <div id="app" style="display:none;">
+
+    <!-- TOP APP BAR -->
+    <header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 shadow-sm"
+      style="background: linear-gradient(to bottom, #1B3022, #061b0e); border-radius: 0 0 12px 12px;">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined" style="color:#f1c40f;">sports_bar</span>
+        <span id="app-ruler-name"
+          style="font-family:'Newsreader',serif;font-size:1.1rem;color:#f1c40f;font-weight:700;">Osterbiersuche</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="header-admin-btn" style="display:none;background:none;border:none;cursor:pointer;"
+          onclick="showPage('admin')">
+          <span class="material-symbols-outlined" style="color:#f1c40f;font-size:1.2rem;">settings</span>
+        </button>
+        <div onclick="showPage('profile')" style="cursor:pointer;">
+          <div id="header-avatar"
+            class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold"
+            style="border-color:#f1c40f;background:#1b3022;color:#f1c40f;">?</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- PAGES CONTAINER -->
+    <main class="pt-20 pb-28 px-5 max-w-lg mx-auto">
+
+      <!-- ===== HOME ===== -->
+      <div id="page-home" class="page active">
+        <!-- Hero -->
+        <section class="mb-6 text-center pt-4">
+          <p class="font-label text-xs uppercase tracking-widest mb-2" style="color:#737973;">Karfreitag · 3. April 2026
+          </p>
+          <h1 class="text-4xl font-extrabold mb-2"
+            style="color:#061b0e;font-family:'Newsreader',serif;line-height:1.1;">Osterbiersuche</h1>
+          <div
+            style="background:linear-gradient(135deg,#1B3022,#2d5a40);border-radius:20px;padding:20px;margin-bottom:16px;box-shadow:0 8px 24px rgba(6,27,14,0.18);display:flex;align-items:center;gap:16px;">
+            <div
+              style="width:72px;height:72px;border-radius:50%;border:3px solid #f1c40f;overflow:hidden;flex-shrink:0;background:#0f2418;display:flex;align-items:center;justify-content:center;">
+              <img id="ruler-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
+              <span id="ruler-img-placeholder" style="font-size:2rem;">👑</span>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <p
+                style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.15em;color:rgba(241,196,15,0.7);margin-bottom:4px;">
+                Amtierender Herrscher</p>
+              <p id="home-ruler-badge"
+                style="font-family:'Newsreader',serif;font-size:1.4rem;font-weight:800;color:#f1c40f;line-height:1.2;margin:0;">
+                Lädt…</p>
+              <p id="home-ruler-title"
+                style="font-size:0.78rem;color:rgba(255,255,255,0.65);margin-top:4px;font-style:italic;"></p>
+            </div>
+          </div>
+
+          <!-- Wetter -->
+          <div id="weather-container" style="margin-bottom:14px;">
+            <div
+              style="background:#f6f3ee;border-radius:14px;padding:16px;text-align:center;color:#737973;font-size:0.85rem;border:1px solid #e5e2dd;">
+              Wetterdaten werden geladen…</div>
+          </div>
+
+          <!-- Countdown -->
+          <div
+            style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:18px 20px;box-shadow:0 2px 8px rgba(6,27,14,0.06);">
+            <p
+              style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin-bottom:10px;">
+              Nächste Osterbiersuche</p>
+            <div style="display:flex;justify-content:center;gap:20px;">
+              <div>
+                <div id="cd-days"
+                  style="font-family:'Newsreader',serif;font-size:2.2rem;font-weight:800;color:#061b0e;">–</div>
+                <div style="font-size:0.68rem;color:#737973;text-transform:uppercase;letter-spacing:0.05em;">Tage</div>
+              </div>
+              <div style="color:#e5e2dd;font-size:2rem;align-self:center;">:</div>
+              <div>
+                <div id="cd-hours"
+                  style="font-family:'Newsreader',serif;font-size:2.2rem;font-weight:800;color:#061b0e;">–</div>
+                <div style="font-size:0.68rem;color:#737973;text-transform:uppercase;letter-spacing:0.05em;">Std</div>
+              </div>
+              <div style="color:#e5e2dd;font-size:2rem;align-self:center;">:</div>
+              <div>
+                <div id="cd-mins"
+                  style="font-family:'Newsreader',serif;font-size:2.2rem;font-weight:800;color:#061b0e;">–</div>
+                <div style="font-size:0.68rem;color:#737973;text-transform:uppercase;letter-spacing:0.05em;">Min</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Stats Grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div style="background:#f6f3ee;border-radius:14px;padding:18px 16px;border-left:4px solid #ffbf00;">
+            <span class="material-symbols-outlined" style="color:#ffbf00;font-size:1.2rem;">group</span>
+            <p style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin:4px 0 2px;">
+              Teilnehmer</p>
+            <p id="stat-participants"
+              style="font-family:'Newsreader',serif;font-size:2rem;font-weight:800;color:#061b0e;">–</p>
+          </div>
+          <div style="background:#f6f3ee;border-radius:14px;padding:18px 16px;transform:translateY(8px);">
+            <span class="material-symbols-outlined" style="color:#061b0e;font-size:1.2rem;">sports_bar</span>
+            <p style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin:4px 0 2px;">
+              Getränke getrackt</p>
+            <p id="stat-drinks" style="font-family:'Newsreader',serif;font-size:2rem;font-weight:800;color:#061b0e;">–
+            </p>
+          </div>
+        </div>
+
+        <!-- Top 3 -->
+        <div
+          style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;box-shadow:0 2px 8px rgba(6,27,14,0.05);">
+          <h3 style="font-size:1.1rem;color:#061b0e;margin-bottom:14px;">🏆 Top 3 aktuell</h3>
+          <div id="home-top3">
+            <div style="text-align:center;padding:20px 0;color:#737973;font-size:0.85rem;">Noch keine Daten</div>
+          </div>
+          <button onclick="showPage('leaderboard')"
+            style="width:100%;margin-top:14px;background:#f0ede8;color:#1c1c19;padding:11px;border-radius:8px;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;font-family:'Work Sans',sans-serif;">
+            Vollständiges Leaderboard →
+          </button>
+        </div>
+      </div>
+
+      <!-- ===== LEADERBOARD ===== -->
+      <div id="page-leaderboard" class="page">
+        <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;color:#061b0e;padding:16px 0 12px;">🏆 Leaderboard
+        </h2>
+        <div id="leaderboard-list">
+          <div style="text-align:center;padding:40px 0;color:#737973;">Noch keine Einträge</div>
+        </div>
+      </div>
+
+      <!-- ===== MY DRINKS ===== -->
+      <div id="page-mydrinks" class="page">
+        <!-- Progress Header (Stitch-Style) -->
+        <section class="mb-6 text-center pt-4">
+          <p class="font-label text-xs uppercase tracking-widest mb-2" style="color:#737973;">Aktueller Fortschritt</p>
+          <h1 id="drinks-progress-text"
+            style="font-family:'Newsreader',serif;font-size:2.2rem;font-weight:800;color:#061b0e;margin-bottom:12px;">
+            0 von 10 Getränken
+          </h1>
+          <div style="width:100%;height:10px;background:#ebe8e3;border-radius:100px;overflow:hidden;margin-bottom:6px;">
+            <div id="drinks-bar"
+              style="height:100%;border-radius:100px;background:#ffbf00;box-shadow:0 0 10px rgba(255,191,0,0.5);width:0%;transition:width 0.5s ease;">
+            </div>
+          </div>
+        </section>
+
+        <!-- Code-Eingabe (Stitch-Style) -->
+        <div style="background:#e5e2dd;border-radius:14px;padding:20px;margin-bottom:20px;">
+          <label style="font-size:0.82rem;font-weight:600;color:#434843;display:block;margin-bottom:10px;">Kennzahl
+            eingeben</label>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;position:relative;">
+              <input type="text" id="found-code-input" placeholder="z.B. A1" maxlength="4"
+                style="width:100%;background:#fcf9f4;border:none;border-radius:8px;padding:14px 48px 14px 16px;font-size:1.5rem;font-weight:700;color:#061b0e;font-family:'Newsreader',serif;letter-spacing:2px;text-transform:uppercase;" />
+              <span class="material-symbols-outlined"
+                style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#737973;">search</span>
+            </div>
+            <button onclick="trackFoundDrink()"
+              style="background:#1B3022;color:#f1c40f;padding:14px 18px;border-radius:8px;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:700;font-family:'Work Sans',sans-serif;font-size:0.9rem;">
+              <span class="material-symbols-outlined filled-icon">sports_bar</span>
+              Trinken!
+            </button>
+          </div>
+        </div>
+
+        <!-- Consumed drinks -->
+        <div id="consumed-section" style="margin-bottom:20px;">
+          <p
+            style="font-size:0.8rem;font-weight:600;color:#737973;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">
+            Bereits getrunken</p>
+          <div id="consumed-drinks-list">
+            <div style="text-align:center;padding:24px 0;color:#737973;font-size:0.85rem;">
+              <span style="font-size:2rem;display:block;margin-bottom:8px;">🔍</span>Noch nichts gefunden
+            </div>
+          </div>
+        </div>
+
+        <div style="height:1px;background:#e5e2dd;margin:16px 0;"></div>
+
+        <!-- Hidden drinks -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <p style="font-size:0.8rem;font-weight:600;color:#737973;text-transform:uppercase;letter-spacing:0.08em;">
+              Meine versteckten Getränke</p>
+            <button onclick="openAddDrink()"
+              style="background:#1B3022;color:#f1c40f;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:0.78rem;font-weight:700;font-family:'Work Sans',sans-serif;">
+              + Hinzufügen
+            </button>
+          </div>
+          <div id="hidden-drinks-list">
+            <div style="text-align:center;padding:24px 0;color:#737973;font-size:0.85rem;">
+              <span style="font-size:2rem;display:block;margin-bottom:8px;">🥷</span>Noch keine Getränke angelegt
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== HALL OF FAME ===== -->
+      <div id="page-hof" class="page">
+        <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;color:#061b0e;padding:16px 0 12px;">👑 Hall of Fame
+        </h2>
+        <div id="hof-list">
+          <div style="text-align:center;padding:40px 0;color:#737973;font-size:0.85rem;">
+            <span style="font-size:2.5rem;display:block;margin-bottom:10px;">👑</span>
+            Noch keine Einträge – füge sie im Admin-Bereich hinzu!
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RULES & WEATHER ===== -->
+      <div id="page-rules" class="page">
+        <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;color:#061b0e;padding:16px 0 12px;">📋 Die Regeln
+        </h2>
+
+
+        <div
+          style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;box-shadow:0 2px 8px rgba(6,27,14,0.05);">
+          <div id="rules-list"></div>
+        </div>
+      </div>
+
+      <!-- ===== PROFILE ===== -->
+      <div id="page-profile" class="page">
+        <div
+          style="text-align:center;padding:24px 0 20px;background:#fff;border-radius:16px;border:1px solid #e5e2dd;margin-bottom:16px;">
+          <!-- Avatar (Initials only – no image upload) -->
+          <div id="profile-avatar-display"
+            style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#1B3022,#4d6453);color:#f1c40f;font-family:'Newsreader',serif;font-size:2rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:3px solid #f1c40f;">
+            ?
+          </div>
+          <div id="profile-name-display"
+            style="font-family:'Newsreader',serif;font-size:1.4rem;font-weight:700;color:#061b0e;">Lädt…</div>
+          <div id="profile-email-display" style="font-size:0.8rem;color:#737973;margin-top:2px;"></div>
+        </div>
+
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <p style="font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:8px;">Anzeigename ändern</p>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="profile-name-input" placeholder="Dein Name"
+              style="flex:1;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            <button onclick="updateDisplayName()"
+              style="background:#1B3022;color:#f1c40f;padding:11px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;font-size:0.85rem;">
+              Speichern
+            </button>
+          </div>
+        </div>
+
+        <!-- My Stats -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3 style="font-size:1rem;color:#061b0e;margin-bottom:14px;">Meine Statistik</h3>
+          <div id="my-stats-content" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="background:#f6f3ee;border-radius:10px;padding:14px;border-left:3px solid #ffbf00;">
+              <span class="material-symbols-outlined" style="color:#ffbf00;font-size:1.1rem;">sports_bar</span>
+              <p
+                style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin:4px 0 2px;">
+                Getrunken</p>
+              <p id="stat-my-drinks"
+                style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;">–</p>
+            </div>
+            <div style="background:#f6f3ee;border-radius:10px;padding:14px;">
+              <span class="material-symbols-outlined" style="color:#061b0e;font-size:1.1rem;">water_drop</span>
+              <p
+                style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin:4px 0 2px;">
+                Reiner Alkohol</p>
+              <p id="stat-my-alc"
+                style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;">–</p>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="confirmParticipation()"
+          style="width:100%;background:#ffbf00;color:#061b0e;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:0.95rem;font-weight:700;margin-bottom:12px;">
+          🍺 Teilnahme bestätigen
+        </button>
+
+        <button onclick="doLogout()"
+          style="width:100%;background:#ffdad6;color:#93000a;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:0.95rem;font-weight:700;font-family:'Work Sans',sans-serif;">
+          Abmelden
+        </button>
+      </div>
+
+      <!-- ===== ADMIN ===== -->
+      <div id="page-admin" class="page">
+        <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;color:#061b0e;padding:16px 0 12px;">⚙️ Admin</h2>
+
+        <!-- Theme -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            App-Theme & Herrscher</h3>
+          <div style="margin-bottom:12px;">
+            <label
+              style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Herrscher-Name</label>
+            <input type="text" id="admin-ruler-name" placeholder="z.B. 👑 Bier-König Hannes"
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+          </div>
+          <div style="margin-bottom:12px;">
+            <label
+              style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Gewinnertitel
+              (wird unter dem Namen angezeigt)</label>
+            <input type="text" id="admin-ruler-title" placeholder='z.B. "Der Gerstenmönch"'
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+          </div>
+          <div style="margin-bottom:12px;">
+            <label
+              style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Foto-URL</label>
+            <input type="url" id="admin-ruler-image" placeholder="https://raw.githubusercontent.com/..."
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.85rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            <p style="font-size:0.72rem;color:#737973;margin-top:4px;">Bild in GitHub hochladen und raw-Link einfügen.
+            </p>
+          </div>
+          <div style="margin-bottom:14px;">
+            <label
+              style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Theme</label>
+            <select id="admin-theme"
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;">
+              <option value="">Standard (Dunkelgrün & Gold)</option>
+              <option value="theme-dark">Dunkles Bier (sehr dunkel)</option>
+              <option value="theme-spring">Frühlingswiese (Hell-Grün)</option>
+            </select>
+          </div>
+          <button onclick="saveTheme()"
+            style="width:100%;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            Theme speichern
+          </button>
+        </div>
+
+        <!-- Event Status -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Event-Status</h3>
+          <select id="admin-event-status"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;margin-bottom:12px;">
+            <option value="upcoming">Kommend (Countdown)</option>
+            <option value="active">Aktiv 🟢 (Suche läuft)</option>
+            <option value="ended">Beendet 🏁</option>
+          </select>
+          <button onclick="saveEventStatus()"
+            style="width:100%;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            Status speichern
+          </button>
+        </div>
+
+        <!-- Hall of Fame -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Hall of Fame Eintrag hinzufügen</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label
+                style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Jahr</label>
+              <input type="number" id="admin-hof-year" placeholder="2025"
+                style="width:100%;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Reiner
+                Alkohol (g)</label>
+              <input type="number" id="admin-hof-alcohol" placeholder="86.4" step="0.1"
+                style="width:100%;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Name des
+              Gewinners</label>
+            <input type="text" id="admin-hof-name" placeholder="Hannes"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+          </div>
+          <div style="margin-bottom:14px;">
+            <label
+              style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Titel</label>
+            <input type="text" id="admin-hof-title" placeholder='z.B. "Der Gerstenmönch"'
+              style="width:100%;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+          </div>
+          <button onclick="addHofEntry()"
+            style="width:100%;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            Eintrag speichern 👑
+          </button>
+        </div>
+
+        <!-- Rules -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Regeln bearbeiten</h3>
+          <div id="admin-rules-list" style="margin-bottom:12px;"></div>
+          <input type="text" id="admin-new-rule" placeholder="Neue Regel eingeben…"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.88rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;margin-bottom:10px;" />
+          <button onclick="addRule()"
+            style="width:100%;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            Regel hinzufügen
+          </button>
+        </div>
+
+        <!-- Buchstaben-Zuweisung -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Buchstaben-Zuweisung</h3>
+          <p style="font-size:0.78rem;color:#737973;margin-bottom:12px;">Weise jedem Teilnehmer einen Buchstaben zu
+            (z.B. H für Hannes). Dieser wird für die Kennzahlen verwendet.</p>
+          <div id="letter-assignment-list" style="margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input type="email" id="admin-assign-email" placeholder="E-Mail des Nutzers"
+              style="flex:2;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.85rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            <input type="text" id="admin-assign-letter" placeholder="A" maxlength="1"
+              style="flex:1;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:1rem;font-weight:700;font-family:'Newsreader',serif;text-transform:uppercase;background:#fcf9f4;color:#1c1c19;text-align:center;" />
+            <button onclick="assignLetter()"
+              style="background:#1B3022;color:#f1c40f;padding:10px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;font-size:0.85rem;">
+              Zuweisen
+            </button>
+          </div>
+        </div>
+
+        <!-- Teilnehmer Reset-->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:20px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Teilnehmer zurücksetzen
+          </h3>
+
+          <button onclick="resetParticipants()"
+            style="width:100%;background:#ffdad6;color:#93000a;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;">
+            ❌ Alle Teilnahmen zurücksetzen
+          </button>
+        </div>
+
+        <!-- Password Reset -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:20px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Passwort-Reset für Nutzer</h3>
+          <div style="display:flex;gap:8px;">
+            <input type="email" id="admin-reset-email" placeholder="nutzer@email.de"
+              style="flex:1;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.88rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            <button onclick="adminPasswordReset()"
+              style="background:#f0ede8;color:#1c1c19;padding:11px 14px;border-radius:8px;border:1px solid #e5e2dd;cursor:pointer;font-weight:600;font-family:'Work Sans',sans-serif;font-size:0.85rem;">
+              Senden
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- BOTTOM NAV (Stitch-Style) -->
+    <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pt-2"
+      style="padding-bottom: max(20px, env(safe-area-inset-bottom)); background: rgba(27,48,34,0.45); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-radius: 20px 20px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,0.12);">
+
+      <button class="nav-item" data-page="home" onclick="showPage('home')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:#f1c40f;border:none;color:#061b0e;border-radius:10px;transition:transform 0.15s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined filled-icon" style="font-size:1.4rem;">home_storage</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Home</span>
+      </button>
+
+      <button class="nav-item" data-page="mydrinks" onclick="showPage('mydrinks')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:none;border:none;color:rgba(241,248,233,0.55);transition:color 0.2s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;">sports_bar</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Getränke</span>
+      </button>
+
+      <button class="nav-item" data-page="leaderboard" onclick="showPage('leaderboard')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:none;border:none;color:rgba(241,248,233,0.55);transition:color 0.2s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;">military_tech</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Ranking</span>
+      </button>
+
+      <button class="nav-item" data-page="hof" onclick="showPage('hof')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:none;border:none;color:rgba(241,248,233,0.55);transition:color 0.2s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;">trophy</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Ruhm</span>
+      </button>
+
+      <button class="nav-item" data-page="rules" onclick="showPage('rules')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:none;border:none;color:rgba(241,248,233,0.55);transition:color 0.2s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;">menu_book</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Regeln</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ==============================
+     MODAL: Getränk hinzufügen
+     ============================== -->
+  <div class="modal-overlay" id="modal-add-drink">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3 style="font-family:'Newsreader',serif;font-size:1.4rem;color:#061b0e;margin-bottom:20px;">🍺 Getränk anlegen
+      </h3>
+      <p
+        style="font-size:0.8rem;color:#737973;margin-bottom:16px;background:#f6f3ee;border-radius:8px;padding:10px 12px;">
+        Kein Foto nötig – gib einfach Name und Werte ein. Die App generiert automatisch eine Kennzahl für dich.
+      </p>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Name des
+          Getränks</label>
+        <input type="text" id="drink-name" placeholder="z.B. Helles Löwenbräu"
+          style="width:100%;padding:12px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Ist das ein
+          Zonk? (Alkoholfrei)</label>
+        <select id="drink-is-zonk" onchange="toggleAlcFields(this.value)"
+          style="width:100%;padding:12px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;">
+          <option value="no">Nein, normales Bier 🍺</option>
+          <option value="yes">Ja, Zonk! 🫗</option>
+        </select>
+      </div>
+      <div id="drink-alcohol-fields">
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Alkoholgehalt
+            (%)</label>
+          <input type="number" id="drink-alc" placeholder="5.0" step="0.1" min="0" max="100"
+            style="width:100%;padding:12px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Menge
+          (ml)</label>
+        <input type="number" id="drink-ml" placeholder="500"
+          style="width:100%;padding:12px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal('modal-add-drink')"
+          style="flex:1;background:#f0ede8;color:#1c1c19;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-family:'Work Sans',sans-serif;">
+          Abbrechen
+        </button>
+        <button onclick="saveDrink()"
+          style="flex:2;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+          Getränk speichern ✓
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================
+     MODAL: Gefundenes Getränk bestätigen (Stitch-Style Result Card)
+     ============================== -->
+  <div class="modal-overlay" id="modal-confirm-drink">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <!-- Result Card in Stitch style -->
+      <div style="position:relative;">
+        <div style="position:absolute;top:-8px;right:0;z-index:10;">
+          <span
+            style="background:#41241a;color:#ebbcac;padding:5px 14px;border-radius:100px;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.15em;font-weight:700;">Gefunden!</span>
+        </div>
+        <div id="confirm-drink-info"
+          style="background:#fff;border-radius:14px;border:1px solid #e5e2dd;overflow:hidden;margin-bottom:20px;box-shadow:0 8px 32px rgba(0,0,0,0.06);">
+          <!-- Filled dynamically -->
+        </div>
+      </div>
+      <p style="font-size:0.85rem;color:#737973;margin-bottom:16px;text-align:center;">
+        Du musst es jetzt sofort trinken! Bist du sicher?
+      </p>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal('modal-confirm-drink')"
+          style="flex:1;background:#f0ede8;color:#1c1c19;padding:13px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-family:'Work Sans',sans-serif;">
+          Abbrechen
+        </button>
+        <button onclick="confirmDrinkConsumption()"
+          style="flex:2;background:#ffbf00;color:#061b0e;padding:13px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;font-size:1rem;display:flex;align-items:center;justify-content:center;gap:8px;">
+          Bestätigen &amp; Trinken!
+          <span class="material-symbols-outlined filled-icon" style="font-size:1.1rem;">sports_bar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ================================================
+    // FIREBASE CONFIG
+    // ================================================
+    // ⚠️ HIER DEINE FIREBASE CONFIG EINTRAGEN (aus Projekteinstellungen):
+    const firebaseConfig = {
+      apiKey: "AIzaSyAW60lLKtERvo3pzQ9hYU8hf4s6_cGNgDg",
+      authDomain: "osterbiersuche.firebaseapp.com",
+      projectId: "osterbiersuche",
+      storageBucket: "osterbiersuche.firebasestorage.app",
+      messagingSenderId: "607449905969",
+      appId: "1:607449905969:web:e3e28a0b039387d52dce10"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    // Kein Storage mehr!
+
+    // ================================================
+    // STATE
+    // ================================================
+    let currentUser = null;
+    let currentUserDoc = null;
+    let pendingFoundDrink = null;
+    let editingDrinkId = null;
+    let allUsersCache = {};
+    let ADMIN_EMAILS = [];
+
+    const DEFAULT_RULES = [
+      "Jeder Teilnehmer kauft vorab 8 Bier und 2 alkoholfreie Getränke (Zonks).",
+      "Der Veranstalter ist immer der Gewinner aus dem Vorjahr.",
+      "Jeder Teilnehmer bekommt beim Ankommen eine Zone zugewiesen, in der er seine Getränke versteckt.",
+      "Sobald alle Getränke versteckt sind, eröffnet der Veranstalter die Suche feierlich.",
+      "Man darf in allen Zonen suchen – außer in der eigenen.",
+      "Gefundene Getränke müssen sofort getrunken werden, bevor weitergesucht wird.",
+      "Jeder Teilnehmer darf maximal 10 Getränke trinken.",
+      "Jedes getrunkene Getränk wird in der App eingetragen (Kennzahl eingeben).",
+      "Wer nach 10 Getränken den höchsten reinen Alkohol (g) konsumiert hat, gewinnt.",
+      "Der Gewinner erhält einen Titel und ist nächstes Jahr Veranstalter.",
+      "Zonks (alkoholfreie Getränke) zählen zum Getränkelimit, bringen aber 0g Alkohol."
+    ];
+
+    // ================================================
+    // AUTH LISTENER
+    // ================================================
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        await loadUserDoc();
+        await loadAppSettings();
+        initApp();
+        document.getElementById('loading-screen').style.display = 'none';
+        document.getElementById('page-auth').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+      } else {
+        document.getElementById('loading-screen').style.display = 'none';
+        document.getElementById('page-auth').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
+      }
+    });
+
+    async function loadUserDoc() {
+      const ref = db.collection('users').doc(currentUser.uid);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        const name = currentUser.displayName || currentUser.email.split('@')[0];
+        await ref.set({ displayName: name, email: currentUser.email, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      }
+      currentUserDoc = (await ref.get()).data();
+    }
+
+    async function loadAppSettings() {
+      const snap = await db.collection('settings').doc('app').get();
+      if (snap.exists) {
+        const s = snap.data();
+        ADMIN_EMAILS = s.adminEmails || [];
+        if (s.theme) { document.body.classList.remove('theme-dark', 'theme-spring'); if (s.theme) document.body.classList.add(s.theme); }
+        if (s.rulerName) {
+          document.getElementById('home-ruler-badge').textContent = s.rulerName;
+          document.getElementById('app-ruler-name').textContent = s.rulerName;
+        }
+        if (s.rulerTitle) document.getElementById('home-ruler-title').textContent = s.rulerTitle;
+        if (s.rulerImageUrl) {
+          const img = document.getElementById('ruler-img');
+          const ph = document.getElementById('ruler-img-placeholder');
+          img.src = s.rulerImageUrl; img.style.display = 'block'; ph.style.display = 'none';
+        }
+      } else {
+        await db.collection('settings').doc('app').set({ adminEmails: [], theme: '', rulerName: '👑 Erster Veranstalter', eventStatus: 'upcoming', rules: DEFAULT_RULES });
+      }
+      if (ADMIN_EMAILS.includes(currentUser.email)) document.getElementById('header-admin-btn').style.display = 'block';
+    }
+
+    function initApp() {
+      updateHeaderAvatar();
+      loadLeaderboard();
+      loadMyDrinks();
+      loadHallOfFame();
+      loadRules();
+      startCountdown();
+      loadWeather();
+      loadStats();
+    }
+
+    // ================================================
+    // AUTH
+    // ================================================
+    function switchAuthTab(tab) {
+      document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
+      document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none';
+      document.getElementById('tab-login').style.borderBottomColor = tab === 'login' ? '#ffbf00' : 'transparent';
+      document.getElementById('tab-login').style.color = tab === 'login' ? '#061b0e' : '#434843';
+      document.getElementById('tab-register').style.borderBottomColor = tab === 'register' ? '#ffbf00' : 'transparent';
+      document.getElementById('tab-register').style.color = tab === 'register' ? '#061b0e' : '#434843';
+    }
+
+    async function doLogin() {
+      const email = document.getElementById('login-email').value.trim();
+      const pw = document.getElementById('login-pw').value;
+      try { await auth.signInWithEmailAndPassword(email, pw); }
+      catch (e) { showToast('Fehler: ' + getAuthError(e.code)); }
+    }
+
+    async function doRegister() {
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const pw = document.getElementById('reg-pw').value;
+      if (!name || !email || !pw) { showToast('Bitte alle Felder ausfüllen'); return; }
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pw);
+        await cred.user.updateProfile({ displayName: name });
+        await db.collection('users').doc(cred.user.uid).set({ displayName: name, email, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        showToast('Willkommen bei der Osterbiersuche! 🍺');
+      } catch (e) { showToast('Fehler: ' + getAuthError(e.code)); }
+    }
+
+    async function doLogout() { await auth.signOut(); }
+
+    async function doPasswordReset() {
+      const email = document.getElementById('login-email').value.trim();
+      if (!email) { showToast('Bitte erst E-Mail eingeben'); return; }
+      try { await auth.sendPasswordResetEmail(email); showToast('Reset-E-Mail gesendet! 📧'); }
+      catch (e) { showToast('Fehler: ' + e.message); }
+    }
+
+    function getAuthError(code) {
+      return { 'auth/user-not-found': 'Nutzer nicht gefunden', 'auth/wrong-password': 'Falsches Passwort', 'auth/email-already-in-use': 'E-Mail bereits registriert', 'auth/weak-password': 'Passwort zu schwach', 'auth/invalid-email': 'Ungültige E-Mail', 'auth/invalid-credential': 'E-Mail oder Passwort falsch' }[code] || code;
+    }
+
+    // ================================================
+    // NAVIGATION
+    // ================================================
+    const PAGE_TITLES = { home: 'Osterbiersuche', leaderboard: 'Leaderboard', mydrinks: 'Getränke', hof: 'Hall of Fame', rules: 'Regeln', profile: 'Profil', admin: 'Admin' };
+
+    function showPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const page = document.getElementById('page-' + name);
+      if (page) page.classList.add('active');
+
+      // Nav active state
+      document.querySelectorAll('.nav-item').forEach(n => {
+        const isActive = n.dataset.page === name;
+        n.style.background = isActive ? '#f1c40f' : 'none';
+        n.style.color = isActive ? '#061b0e' : 'rgba(241,248,233,0.55)';
+        n.style.borderRadius = isActive ? '10px' : '0';
+      });
+
+      // Update app title
+      document.getElementById('app-ruler-name').style.display = name === 'home' ? 'block' : 'none';
+      // Could show page name, but keeping ruler name is nicer
+
+      window.scrollTo(0, 0);
+      if (name === 'leaderboard') loadLeaderboard();
+      if (name === 'mydrinks') loadMyDrinks();
+      if (name === 'hof') loadHallOfFame();
+      if (name === 'profile') { loadProfile(); loadMyStats(); }
+      if (name === 'admin') loadAdminPage();
+    }
+
+    // ================================================
+    // HEADER AVATAR (Initials)
+    // ================================================
+    function updateHeaderAvatar() {
+      const name = currentUserDoc?.displayName || currentUser?.displayName || '?';
+      const initial = name.charAt(0).toUpperCase();
+      document.getElementById('header-avatar').textContent = initial;
+      document.getElementById('profile-avatar-display').textContent = initial;
+    }
+
+    // ================================================
+    // PROFILE
+    // ================================================
+    function loadProfile() {
+      if (!currentUser) return;
+      const name = currentUserDoc?.displayName || currentUser.displayName || '–';
+      document.getElementById('profile-name-display').textContent = name;
+      document.getElementById('profile-email-display').textContent = currentUser.email;
+      document.getElementById('profile-name-input').value = name;
+      document.getElementById('profile-avatar-display').textContent = name.charAt(0).toUpperCase();
+    }
+
+    async function updateDisplayName() {
+      const name = document.getElementById('profile-name-input').value.trim();
+      if (!name) return;
+      await currentUser.updateProfile({ displayName: name });
+      await db.collection('users').doc(currentUser.uid).update({ displayName: name });
+      currentUserDoc.displayName = name;
+      document.getElementById('profile-name-display').textContent = name;
+      updateHeaderAvatar();
+      showToast('Name gespeichert ✓');
+    }
+
+    async function loadMyStats() {
+      const snap = await db.collection('consumed_drinks').where('userId', '==', currentUser.uid).get();
+      let totalAlc = 0;
+      snap.docs.forEach(d => { totalAlc += d.data().pureAlcohol || 0; });
+      document.getElementById('stat-my-drinks').textContent = snap.size;
+      document.getElementById('stat-my-alc').textContent = totalAlc.toFixed(1) + 'g';
+    }
+
+    async function confirmParticipation() {
+      try {
+        await db.collection('users').doc(currentUser.uid).update({
+          isParticipating: true
+        });
+
+        showToast('Teilnahme bestätigt! 🍺');
+        loadStats(); // wichtig → Counter neu laden
+      } catch (e) {
+        showToast('Fehler beim Speichern');
+      }
+    }
+
+    // ================================================
+    // DRINKS (no photos)
+    // ================================================
+    function toggleAlcFields(val) {
+      document.getElementById('drink-alcohol-fields').style.display = val === 'yes' ? 'none' : 'block';
+    }
+
+    function openAddDrink() {
+      editingDrinkId = null;
+      document.getElementById('drink-name').value = '';
+      document.getElementById('drink-alc').value = '';
+      document.getElementById('drink-ml').value = '';
+      document.getElementById('drink-is-zonk').value = 'no';
+      toggleAlcFields('no');
+      document.querySelector('#modal-add-drink h3').textContent = '🍺 Getränk anlegen';
+      openModal('modal-add-drink');
+    }
+
+    async function saveDrink() {
+      const name = document.getElementById('drink-name').value.trim();
+      const isZonk = document.getElementById('drink-is-zonk').value === 'yes';
+      const alc = isZonk ? 0 : parseFloat(document.getElementById('drink-alc').value) || 0;
+      const ml = parseFloat(document.getElementById('drink-ml').value) || 0;
+      if (!name || ml <= 0) { showToast('Name und Menge sind Pflichtfelder'); return; }
+
+      showToast('Wird gespeichert…');
+
+      // Alle eigenen Getränke laden
+      const mySnap = await db.collection('drinks').where('ownerId', '==', currentUser.uid).get();
+      const myDrinks = mySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Limits checken (das aktuell bearbeitete Getränk wird ignoriert)
+      let beerCount = 0;
+      let zonkCount = 0;
+      myDrinks.forEach(d => {
+        if (d.id !== editingDrinkId) {
+          if (d.isZonk) zonkCount++; else beerCount++;
+        }
+      });
+
+      if (isZonk && zonkCount >= 2) { showToast('Limit: Maximal 2 Zonks erlaubt! 🫗'); return; }
+      if (!isZonk && beerCount >= 8) { showToast('Limit: Maximal 8 Biere erlaubt! 🍺'); return; }
+
+      const pureAlc = isZonk ? 0 : (alc / 100) * ml * 0.789;
+
+      if (editingDrinkId) {
+        // VORHANDENES GETRÄNK BEARBEITEN
+        await db.collection('drinks').doc(editingDrinkId).update({
+          name, isZonk, alc, ml, pureAlcohol: pureAlc
+        });
+        showToast('Getränk aktualisiert! ✓');
+      } else {
+        // NEUES GETRÄNK ANLEGEN
+        if (myDrinks.length >= 10) { showToast('Du hast bereits 10 Getränke angelegt!'); return; }
+
+        const userSnap = await db.collection('users').doc(currentUser.uid).get();
+        const assignedLetter = userSnap.data()?.letter || (currentUserDoc?.displayName || 'X').charAt(0).toUpperCase();
+
+        // Niedrigste freie Nummer (1 bis 10) finden, um Lücken zu füllen
+        const usedNumbers = myDrinks.map(d => parseInt(d.code.substring(1)));
+        let nextNum = 1;
+        for (let i = 1; i <= 10; i++) {
+          if (!usedNumbers.includes(i)) { nextNum = i; break; }
+        }
+        const code = assignedLetter.toUpperCase() + nextNum;
+
+        await db.collection('drinks').add({
+          ownerId: currentUser.uid, ownerName: currentUserDoc?.displayName || '?',
+          name, isZonk, alc, ml, pureAlcohol: pureAlc,
+          code, found: false, foundBy: null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        showToast('Gespeichert! Kennzahl: ' + code + ' 🍺');
+      }
+
+      // Modal aufräumen und schließen
+      closeModal('modal-add-drink');
+      document.getElementById('drink-name').value = '';
+      document.getElementById('drink-alc').value = '';
+      document.getElementById('drink-ml').value = '';
+      editingDrinkId = null;
+      loadMyDrinks();
+    }
+
+    async function loadMyDrinks() {
+      if (!currentUser) return;
+
+      // Hidden drinks
+      const mySnap = await db.collection('drinks').where('ownerId', '==', currentUser.uid).orderBy('createdAt', 'asc').get();
+      const hiddenEl = document.getElementById('hidden-drinks-list');
+      if (mySnap.empty) {
+        hiddenEl.innerHTML = '<div style="text-align:center;padding:24px 0;color:#737973;font-size:0.85rem;"><span style="font-size:2rem;display:block;margin-bottom:8px;">🥷</span>Noch keine Getränke angelegt</div>';
+      } else {
+        hiddenEl.innerHTML = mySnap.docs.map(d => renderDrinkCard(d.id, d.data())).join('');
+      }
+
+      // Consumed
+      const consumedSnap = await db.collection('consumed_drinks').where('userId', '==', currentUser.uid).orderBy('consumedAt', 'asc').get();
+      const count = consumedSnap.size;
+      const totalAlc = consumedSnap.docs.reduce((s, d) => s + (d.data().pureAlcohol || 0), 0);
+
+      // Update progress
+      document.getElementById('drinks-progress-text').textContent = count + ' von 10 Getränken';
+      const pct = Math.min(count / 10 * 100, 100);
+      const bar = document.getElementById('drinks-bar');
+      bar.style.width = pct + '%';
+      bar.style.background = count >= 8 ? 'linear-gradient(90deg, #ffbf00, #ff6b6b)' : '#ffbf00';
+
+      const consumedEl = document.getElementById('consumed-drinks-list');
+      if (consumedSnap.empty) {
+        consumedEl.innerHTML = '<div style="text-align:center;padding:24px 0;color:#737973;font-size:0.85rem;"><span style="font-size:2rem;display:block;margin-bottom:8px;">🔍</span>Noch nichts gefunden</div>';
+      } else {
+        let html = consumedSnap.docs.map(d => renderConsumedCard(d.data())).join('');
+        html += `<div style="background:#f6f3ee;border-radius:12px;padding:14px 16px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;">Gesamter reiner Alkohol</p>
+        <p style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;">${totalAlc.toFixed(2)}g</p>
+      </div>
+      <span class="material-symbols-outlined" style="color:#ffbf00;font-size:2rem;">water_drop</span>
+    </div>`;
+        consumedEl.innerHTML = html;
+      }
+    }
+
+    function renderDrinkCard(id, d) {
+      const emoji = d.isZonk ? '🫗' : '🍺';
+      const meta = d.isZonk ? 'Zonk · alkoholfrei' : `${d.alc}% Vol. · ${d.ml}ml · ${(d.pureAlcohol || 0).toFixed(1)}g Alk.`;
+      const foundBadge = d.found ? `<span style="background:#ebe8e3;color:#737973;border-radius:100px;padding:2px 8px;font-size:0.68rem;font-weight:600;">Gefunden</span>` : '';
+      const actionButtons = !d.found ? `
+    <div style="display:flex;gap:6px;margin-top:10px;">
+      <button onclick="editDrink('${id}')" style="background:#e5e2dd;border:none;padding:5px 12px;border-radius:6px;font-size:0.75rem;cursor:pointer;color:#434843;font-weight:600;">Bearbeiten</button>
+      <button onclick="deleteDrink('${id}')" style="background:#ffdad6;border:none;padding:5px 12px;border-radius:6px;font-size:0.75rem;cursor:pointer;color:#ba1a1a;font-weight:600;">Löschen</button>
+    </div>
+  ` : '';
+      return `<div style="background:#fff;border-radius:12px;border:1px solid #e5e2dd;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(6,27,14,0.04);">
+    <div style="width:46px;height:46px;border-radius:10px;background:#f0ede8;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">${emoji}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+        <span style="background:${d.isZonk ? '#e5e2dd' : '#1B3022'};color:${d.isZonk ? '#737973' : '#f1c40f'};border-radius:6px;padding:3px 8px;font-weight:700;font-size:0.78rem;font-family:'Newsreader',serif;letter-spacing:1px;">${d.code}</span>
+        <span style="font-weight:600;font-size:0.88rem;color:#1c1c19;">${d.name}</span>
+        ${foundBadge}
+      </div>
+      <div style="font-size:0.72rem;color:#737973;">${meta}</div>
+      ${actionButtons}
+    </div>
+  </div>`;
+    }
+
+    function renderConsumedCard(d) {
+      const emoji = d.isZonk ? '🫗' : '🍺';
+      const meta = d.isZonk ? 'Zonk · alkoholfrei' : `${(d.pureAlcohol || 0).toFixed(2)}g reiner Alkohol`;
+      return `<div style="background:#fff;border-radius:12px;border:1px solid #e5e2dd;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(6,27,14,0.04);">
+    <div style="width:46px;height:46px;border-radius:10px;background:#f0ede8;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">${emoji}</div>
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+        <span style="background:${d.isZonk ? '#e5e2dd' : '#1B3022'};color:${d.isZonk ? '#737973' : '#f1c40f'};border-radius:6px;padding:3px 8px;font-weight:700;font-size:0.78rem;font-family:'Newsreader',serif;">${d.code}</span>
+        <span style="font-weight:600;font-size:0.88rem;color:#1c1c19;">${d.drinkName}</span>
+      </div>
+      <div style="font-size:0.72rem;color:#737973;">${meta} · von ${d.ownerName}</div>
+    </div>
+  </div>`;
+    }
+
+    async function deleteDrink(id) {
+      if (!confirm('Willst du dieses Getränk wirklich löschen?')) return;
+      try {
+        await db.collection('drinks').doc(id).delete();
+        showToast('Getränk gelöscht 🗑️');
+        loadMyDrinks();
+      } catch (e) {
+        showToast('Fehler beim Löschen!');
+      }
+    }
+
+    async function editDrink(id) {
+      const snap = await db.collection('drinks').doc(id).get();
+      if (!snap.exists) return;
+      const d = snap.data();
+
+      editingDrinkId = id;
+      document.getElementById('drink-name').value = d.name;
+      document.getElementById('drink-is-zonk').value = d.isZonk ? 'yes' : 'no';
+      toggleAlcFields(d.isZonk ? 'yes' : 'no');
+      document.getElementById('drink-alc').value = d.alc || '';
+      document.getElementById('drink-ml').value = d.ml || '';
+
+      document.querySelector('#modal-add-drink h3').textContent = '✏️ Getränk bearbeiten';
+      openModal('modal-add-drink');
+    }
+
+    // ================================================
+    // TRACK FOUND DRINK
+    // ================================================
+    async function trackFoundDrink() {
+      const code = document.getElementById('found-code-input').value.trim().toUpperCase();
+      if (!code) { showToast('Bitte eine Kennzahl eingeben'); return; }
+
+      const consumed = await db.collection('consumed_drinks').where('userId', '==', currentUser.uid).get();
+      if (consumed.size >= 10) { showToast('Limit erreicht! Du hast bereits 10 Getränke getrunken 🚫'); return; }
+
+      const snap = await db.collection('drinks').where('code', '==', code).get();
+      if (snap.empty) { showToast('Kennzahl "' + code + '" nicht gefunden'); return; }
+
+      const drinkDoc = snap.docs[0];
+      const drink = drinkDoc.data();
+      if (drink.ownerId === currentUser.uid) { showToast('Das ist dein eigenes Getränk! 😄'); return; }
+      if (drink.found) { showToast('Dieses Getränk wurde schon gefunden!'); return; }
+
+      pendingFoundDrink = { id: drinkDoc.id, data: drink };
+
+      // Build result card in Stitch style
+      const pureAlc = drink.isZonk ? 0 : (drink.pureAlcohol || 0);
+      document.getElementById('confirm-drink-info').innerHTML = `
+    <div style="padding:20px;">
+      <p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.12em;color:${drink.isZonk ? '#737973' : '#795900'};font-weight:700;margin-bottom:4px;">
+        Position ${drink.code} · von ${drink.ownerName}
+      </p>
+      <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;margin-bottom:8px;">${drink.name}</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:0;">
+        ${drink.isZonk
+          ? `<span style="background:#f0ede8;color:#737973;border-radius:100px;padding:5px 12px;font-size:0.75rem;font-weight:600;">🫗 Zonk – alkoholfrei</span>`
+          : `<span style="background:#f0ede8;color:#434843;border-radius:100px;padding:5px 12px;font-size:0.75rem;font-weight:600;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:0.85rem;">water_drop</span>${drink.alc}% Vol.</span>
+             <span style="background:#f0ede8;color:#434843;border-radius:100px;padding:5px 12px;font-size:0.75rem;font-weight:600;">${drink.ml}ml</span>
+             <span style="background:#1B3022;color:#f1c40f;border-radius:100px;padding:5px 12px;font-size:0.75rem;font-weight:700;">${pureAlc.toFixed(2)}g Alkohol</span>`
+        }
+      </div>
+    </div>`;
+      openModal('modal-confirm-drink');
+    }
+
+    async function confirmDrinkConsumption() {
+      if (!pendingFoundDrink) return;
+      const { id, data } = pendingFoundDrink;
+
+      await db.collection('consumed_drinks').add({
+        userId: currentUser.uid,
+        userName: currentUserDoc?.displayName || '?',
+        drinkId: id, drinkName: data.name, code: data.code,
+        ownerId: data.ownerId, ownerName: data.ownerName,
+        isZonk: data.isZonk, alc: data.alc, ml: data.ml,
+        pureAlcohol: data.pureAlcohol || 0,
+        consumedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      await db.collection('drinks').doc(id).update({ found: true, foundBy: currentUser.uid });
+
+      closeModal('modal-confirm-drink');
+      document.getElementById('found-code-input').value = '';
+      pendingFoundDrink = null;
+      showToast('Prost! 🍺 Eingetragen!');
+      shootKonfetti();
+      loadMyDrinks();
+      loadLeaderboard();
+      loadStats();
+    }
+
+    // ================================================
+    // LEADERBOARD
+    // ================================================
+    async function loadLeaderboard() {
+      const snap = await db.collection('consumed_drinks').get();
+      const scores = {};
+      snap.docs.forEach(d => {
+        const u = d.data();
+        if (!scores[u.userId]) scores[u.userId] = { name: u.userName, alc: 0, count: 0, uid: u.userId };
+        scores[u.userId].alc += u.pureAlcohol || 0;
+        scores[u.userId].count++;
+      });
+
+      for (const uid of Object.keys(scores)) {
+        if (!allUsersCache[uid]) {
+          const uSnap = await db.collection('users').doc(uid).get();
+          allUsersCache[uid] = uSnap.exists ? uSnap.data() : {};
+        }
+        scores[uid].name = allUsersCache[uid].displayName || scores[uid].name;
+      }
+
+      const sorted = Object.values(scores).sort((a, b) => b.alc - a.alc);
+      const MEDALS = ['🥇', '🥈', '🥉'];
+
+      // Full leaderboard
+      const el = document.getElementById('leaderboard-list');
+      if (!sorted.length) {
+        el.innerHTML = '<div style="text-align:center;padding:40px 0;color:#737973;font-size:0.85rem;"><span style="font-size:2.5rem;display:block;margin-bottom:10px;">🏆</span>Noch keine Einträge</div>';
+      } else {
+        el.innerHTML = sorted.map((e, i) => {
+          const initial = (e.name || '?').charAt(0).toUpperCase();
+          const isMe = e.uid === currentUser.uid;
+          return `<div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #e5e2dd;${i === 0 ? 'padding-top:0;' : ''}">
+        <span style="font-size:${i < 3 ? '1.4rem' : '1rem'};width:28px;text-align:center;color:${i < 3 ? 'inherit' : '#737973'};">${MEDALS[i] || '#' + (i + 1)}</span>
+        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#1B3022,#4d6453);color:#f1c40f;font-family:'Newsreader',serif;font-size:1.1rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initial}</div>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:0.92rem;color:#1c1c19;">${e.name} ${isMe ? '<span style="background:#f0ede8;color:#737973;border-radius:100px;padding:1px 8px;font-size:0.68rem;font-weight:600;">du</span>' : ''}</div>
+          <div style="font-size:0.72rem;color:#737973;">${e.count}/10 Getränke</div>
+        </div>
+        <div style="font-family:'Newsreader',serif;font-size:1.2rem;font-weight:800;color:#061b0e;">${e.alc.toFixed(1)}g</div>
+      </div>`;
+        }).join('');
+      }
+
+      // Top 3 on home
+      const t3el = document.getElementById('home-top3');
+      if (!sorted.length) {
+        t3el.innerHTML = '<div style="text-align:center;padding:16px 0;color:#737973;font-size:0.85rem;">Noch keine Daten</div>';
+      } else {
+        t3el.innerHTML = sorted.slice(0, 3).map((e, i) => {
+          const initial = (e.name || '?').charAt(0).toUpperCase();
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:${i < 2 ? '1px solid #e5e2dd' : 'none'};">
+        <span style="font-size:1.2rem;width:24px;text-align:center;">${MEDALS[i]}</span>
+        <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1B3022,#4d6453);color:#f1c40f;font-family:'Newsreader',serif;font-size:0.95rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initial}</div>
+        <div style="flex:1;font-weight:600;font-size:0.85rem;">${e.name}</div>
+        <div style="font-family:'Newsreader',serif;font-size:1rem;font-weight:800;color:#061b0e;">${e.alc.toFixed(1)}g</div>
+      </div>`;
+        }).join('');
+      }
+    }
+
+
+    async function loadStats() {
+      try {
+        // 👇 Teilnehmer zählen
+        const usersSnap = await db.collection('users')
+          .where('isParticipating', '==', true)
+          .get();
+
+        document.getElementById('stat-participants').textContent = usersSnap.size;
+
+        // 👇 Getränke zählen (wie bisher)
+        const drinksSnap = await db.collection('consumed_drinks').get();
+        document.getElementById('stat-drinks').textContent = drinksSnap.size;
+
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ================================================
+    // HALL OF FAME
+    // ================================================
+    async function loadHallOfFame() {
+      const snap = await db.collection('hall_of_fame').orderBy('year', 'desc').get();
+      const el = document.getElementById('hof-list');
+      if (snap.empty) {
+        el.innerHTML = '<div style="text-align:center;padding:40px 0;color:#737973;font-size:0.85rem;"><span style="font-size:2.5rem;display:block;margin-bottom:10px;">👑</span>Noch keine Einträge</div>';
+        return;
+      }
+      el.innerHTML = snap.docs.map((d, i) => {
+        const e = d.data();
+        const initial = (e.name || '?').charAt(0).toUpperCase();
+        return `<div style="background:${i === 0 ? '#1B3022' : '#fff'};border-radius:16px;border:1px solid ${i === 0 ? '#1B3022' : '#e5e2dd'};padding:20px;margin-bottom:10px;box-shadow:${i === 0 ? '0 8px 24px rgba(6,27,14,0.15)' : '0 2px 8px rgba(6,27,14,0.04)'};">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:${i === 0 ? 'rgba(255,191,0,0.2)' : '#f6f3ee'};color:${i === 0 ? '#f1c40f' : '#1B3022'};font-family:'Newsreader',serif;font-size:1.3rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid ${i === 0 ? 'rgba(241,196,15,0.4)' : '#e5e2dd'};">${initial}</div>
+        <div style="flex:1;">
+          <p style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:${i === 0 ? 'rgba(241,196,15,0.7)' : '#737973'};margin-bottom:2px;">${e.year}</p>
+          <h3 style="font-family:'Newsreader',serif;font-size:1.2rem;font-weight:800;color:${i === 0 ? '#fff' : '#061b0e'};margin-bottom:2px;">${e.name}</h3>
+          <p style="font-size:0.8rem;font-style:italic;color:${i === 0 ? 'rgba(255,255,255,0.7)' : '#737973'};">"${e.title}"</p>
+        </div>
+        <div style="text-align:right;">
+          <p style="font-family:'Newsreader',serif;font-size:1.4rem;font-weight:800;color:${i === 0 ? '#f1c40f' : '#061b0e'};">${parseFloat(e.alcohol || 0).toFixed(1)}g</p>
+          <p style="font-size:0.65rem;color:${i === 0 ? 'rgba(255,255,255,0.5)' : '#737973'};">Alkohol</p>
+        </div>
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    // ================================================
+    // RULES
+    // ================================================
+    async function loadRules() {
+      const snap = await db.collection('settings').doc('app').get();
+      const rules = (snap.exists && snap.data().rules) ? snap.data().rules : DEFAULT_RULES;
+      document.getElementById('rules-list').innerHTML = rules.map((r, i) => `
+    <div style="display:flex;gap:12px;padding:12px 0;border-bottom:${i < rules.length - 1 ? '1px solid #e5e2dd' : 'none'};">
+      <div style="background:#1B3022;color:#f1c40f;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Newsreader',serif;font-weight:700;flex-shrink:0;font-size:0.85rem;">${i + 1}</div>
+      <div style="font-size:0.88rem;line-height:1.55;color:#434843;padding-top:2px;">${r}</div>
+    </div>`).join('');
+    }
+
+    // ================================================
+    // WEATHER
+    // ================================================
+    async function loadWeather() {
+      try {
+        const lat = 48.1351, lon = 11.5820; // München – in SETUP_ANLEITUNG erklären wie man ändert
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Europe%2FBerlin&start_date=2026-04-03&end_date=2026-04-03`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const d = data.daily;
+        const tmax = Math.round(d.temperature_2m_max[0]);
+        const tmin = Math.round(d.temperature_2m_min[0]);
+        const prec = d.precipitation_sum[0];
+        const code = d.weathercode[0];
+        const icon = wmoIcon(code);
+        const desc = wmoDesc(code);
+
+        document.getElementById('weather-container').innerHTML = `
+      <div style="background:linear-gradient(135deg,#1B3022,#2d5a40);border-radius:16px;padding:24px 20px;color:#fff;display:flex;align-items:center;gap:16px;box-shadow:0 8px 24px rgba(6,27,14,0.15);">
+        <div style="font-size:3.5rem;line-height:1;">${icon}</div>
+        <div style="flex:1;">
+          <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:rgba(241,196,15,0.8);margin-bottom:4px;">Karfreitag · 3. April 2026</p>
+          <p style="font-family:'Newsreader',serif;font-size:2.4rem;font-weight:800;color:#fff;line-height:1;">${tmax}°C</p>
+          <p style="font-size:0.82rem;color:rgba(255,255,255,0.75);margin-top:2px;">${desc}</p>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.6);">Min ${tmin}°C</div>
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.6);margin-top:2px;">Regen ${prec}mm</div>
+        </div>
+      </div>`;
+      } catch (e) {
+        document.getElementById('weather-container').innerHTML = `
+      <div style="background:#f6f3ee;border-radius:14px;padding:16px;text-align:center;color:#737973;font-size:0.85rem;border:1px solid #e5e2dd;">Wetter konnte nicht geladen werden</div>`;
+      }
+    }
+
+    function wmoIcon(c) {
+      if (c === 0) return '☀️'; if (c <= 2) return '⛅'; if (c <= 3) return '☁️'; if (c <= 49) return '🌫️'; if (c <= 59) return '🌦️'; if (c <= 69) return '🌧️'; if (c <= 79) return '❄️'; if (c <= 82) return '🌨️'; return '⛈️';
+    }
+    function wmoDesc(c) {
+      if (c === 0) return 'Klarer Himmel'; if (c <= 2) return 'Teilweise bewölkt'; if (c <= 3) return 'Bedeckt'; if (c <= 49) return 'Neblig'; if (c <= 59) return 'Nieselregen'; if (c <= 69) return 'Regen'; if (c <= 79) return 'Schnee'; if (c <= 82) return 'Regenschauer'; return 'Gewitter';
+    }
+
+    // ================================================
+    // COUNTDOWN
+    // ================================================
+    function startCountdown() {
+      function update() {
+        const diff = new Date('2026-04-03T10:03:00') - new Date();
+        if (diff <= 0) {
+          document.getElementById('cd-days').textContent = '🍺'; document.getElementById('cd-hours').textContent = 'Los!'; document.getElementById('cd-mins').textContent = '';
+          return;
+        }
+        document.getElementById('cd-days').textContent = Math.floor(diff / 86400000);
+        document.getElementById('cd-hours').textContent = Math.floor((diff % 86400000) / 3600000);
+        document.getElementById('cd-mins').textContent = Math.floor((diff % 3600000) / 60000);
+      }
+      update(); setInterval(update, 60000);
+    }
+
+    // ================================================
+    // ADMIN
+    // ================================================
+    async function loadAdminPage() {
+      if (!ADMIN_EMAILS.includes(currentUser.email)) { showToast('Kein Admin-Zugriff'); showPage('home'); return; }
+      const snap = await db.collection('settings').doc('app').get();
+      const s = snap.data() || {};
+      document.getElementById('admin-ruler-name').value = s.rulerName || '';
+      document.getElementById('admin-ruler-title').value = s.rulerTitle || '';
+      document.getElementById('admin-ruler-image').value = s.rulerImageUrl || '';
+      document.getElementById('admin-theme').value = s.theme || '';
+      document.getElementById('admin-event-status').value = s.eventStatus || 'upcoming';
+      const rules = s.rules || DEFAULT_RULES;
+      document.getElementById('admin-rules-list').innerHTML = rules.map((r, i) => `
+    <div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #e5e2dd;">
+      <span style="flex:1;font-size:0.82rem;color:#434843;">${i + 1}. ${r}</span>
+      <button onclick="deleteRule(${i})" style="background:#ffdad6;color:#93000a;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.75rem;font-weight:700;">✕</button>
+    </div>`).join('');
+      loadLetterAssignments();
+    }
+
+    async function saveTheme() {
+      const ruler = document.getElementById('admin-ruler-name').value.trim();
+      const rulerTitle = document.getElementById('admin-ruler-title').value.trim();
+      const rulerImageUrl = document.getElementById('admin-ruler-image').value.trim();
+      const theme = document.getElementById('admin-theme').value;
+      await db.collection('settings').doc('app').update({ rulerName: ruler, rulerTitle, rulerImageUrl, theme });
+      document.body.classList.remove('theme-dark', 'theme-spring');
+      if (theme) document.body.classList.add(theme);
+      document.getElementById('home-ruler-badge').textContent = ruler;
+      document.getElementById('app-ruler-name').textContent = ruler;
+      document.getElementById('home-ruler-title').textContent = rulerTitle;
+      const img = document.getElementById('ruler-img');
+      const ph = document.getElementById('ruler-img-placeholder');
+      if (rulerImageUrl) { img.src = rulerImageUrl; img.style.display = 'block'; ph.style.display = 'none'; }
+      else { img.style.display = 'none'; ph.style.display = 'block'; }
+      showToast('Theme gespeichert ✓');
+    }
+
+    async function saveEventStatus() {
+      await db.collection('settings').doc('app').update({ eventStatus: document.getElementById('admin-event-status').value });
+      showToast('Event-Status gespeichert ✓');
+    }
+
+    async function addHofEntry() {
+      const year = parseInt(document.getElementById('admin-hof-year').value);
+      const name = document.getElementById('admin-hof-name').value.trim();
+      const title = document.getElementById('admin-hof-title').value.trim();
+      const alcohol = parseFloat(document.getElementById('admin-hof-alcohol').value);
+      if (!year || !name || !title) { showToast('Bitte alle Felder ausfüllen'); return; }
+      await db.collection('hall_of_fame').add({ year, name, title, alcohol });
+      ['admin-hof-year', 'admin-hof-name', 'admin-hof-title', 'admin-hof-alcohol'].forEach(id => document.getElementById(id).value = '');
+      showToast('Hall of Fame Eintrag gespeichert 👑');
+    }
+
+    async function addRule() {
+      const text = document.getElementById('admin-new-rule').value.trim();
+      if (!text) return;
+      const snap = await db.collection('settings').doc('app').get();
+      const rules = snap.data()?.rules || DEFAULT_RULES;
+      rules.push(text);
+      await db.collection('settings').doc('app').update({ rules });
+      document.getElementById('admin-new-rule').value = '';
+      showToast('Regel hinzugefügt ✓');
+      loadAdminPage(); loadRules();
+    }
+
+    async function deleteRule(idx) {
+      const snap = await db.collection('settings').doc('app').get();
+      const rules = snap.data()?.rules || DEFAULT_RULES;
+      rules.splice(idx, 1);
+      await db.collection('settings').doc('app').update({ rules });
+      showToast('Regel gelöscht');
+      loadAdminPage(); loadRules();
+    }
+
+    async function assignLetter() {
+      const email = document.getElementById('admin-assign-email').value.trim();
+      const letter = document.getElementById('admin-assign-letter').value.trim().toUpperCase();
+      if (!email || !letter) { showToast('Bitte E-Mail und Buchstaben eingeben'); return; }
+
+      // Nutzer in Firestore anhand der E-Mail suchen
+      const snap = await db.collection('users').where('email', '==', email).get();
+      if (snap.empty) { showToast('Nutzer nicht gefunden – muss sich erst registrieren!'); return; }
+
+      await db.collection('users').doc(snap.docs[0].id).update({ letter });
+      document.getElementById('admin-assign-email').value = '';
+      document.getElementById('admin-assign-letter').value = '';
+      showToast('Buchstabe ' + letter + ' zugewiesen ✓');
+      loadAdminPage();
+    }
+
+    async function loadLetterAssignments() {
+      const snap = await db.collection('users').get();
+      const el = document.getElementById('letter-assignment-list');
+      const users = snap.docs.map(d => d.data()).filter(u => u.letter);
+      if (!users.length) {
+        el.innerHTML = '<p style="font-size:0.8rem;color:#737973;">Noch keine Zuweisungen</p>';
+        return;
+      }
+      el.innerHTML = users.map(u => `
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e5e2dd;">
+      <span style="background:#1B3022;color:#f1c40f;border-radius:6px;padding:3px 10px;font-weight:700;font-family:'Newsreader',serif;font-size:1rem;">${u.letter}</span>
+      <span style="font-size:0.85rem;color:#1c1c19;flex:1;">${u.displayName}</span>
+      <span style="font-size:0.75rem;color:#737973;">${u.email}</span>
+    </div>`).join('');
+    }
+
+    async function resetParticipants() {
+      if (!confirm("Willst du wirklich alle Teilnahmen zurücksetzen?")) return;
+
+      try {
+        const snap = await db.collection('users').get();
+
+        const batch = db.batch();
+
+        snap.forEach(doc => {
+          batch.update(doc.ref, {
+            isParticipating: false
+          });
+        });
+
+        await batch.commit();
+
+        showToast('Alle Teilnehmer zurückgesetzt 👍');
+
+        loadStats(); // Counter aktualisieren
+      } catch (e) {
+        console.error(e);
+        showToast('Fehler beim Zurücksetzen');
+      }
+    }
+
+    async function adminPasswordReset() {
+      const email = document.getElementById('admin-reset-email').value.trim();
+      if (!email) return;
+      try { await auth.sendPasswordResetEmail(email); showToast('Reset-E-Mail gesendet an ' + email); }
+      catch (e) { showToast('Fehler: ' + e.message); }
+    }
+
+    // ================================================
+    // MODALS
+    // ================================================
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    document.querySelectorAll('.modal-overlay').forEach(o => {
+      o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+    });
+
+    // ================================================
+    // TOAST
+    // ================================================
+    let toastTimer;
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.add('hidden'), 3000);
+    }
+
+    // ================================================
+    // KONFETTI
+    // ================================================
+    function shootKonfetti() {
+      const c = document.getElementById('konfetti');
+      const colors = ['#f1c40f', '#1B3022', '#ffbf00', '#4d6453', '#fff8e1', '#2d5a40'];
+      for (let i = 0; i < 50; i++) {
+        const el = document.createElement('div');
+        el.className = 'konfetti-piece';
+        el.style.cssText = `left:${Math.random() * 100}%;background:${colors[Math.floor(Math.random() * colors.length)]};border-radius:${Math.random() > .5 ? '50%' : '2px'};width:${6 + Math.random() * 8}px;height:${6 + Math.random() * 8}px;animation-duration:${1.5 + Math.random() * 2}s;animation-delay:${Math.random() * .4}s;`;
+        c.appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+      }
+    }
+
+    // ================================================
+    // SERVICE WORKER
+    // ================================================
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { });
+  </script>
+</body>
+
+</html>
