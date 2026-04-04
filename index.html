@@ -1,0 +1,2971 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Osterbiersuche 🍺</title>
+  <meta name="description" content="Die offizielle Osterbiersuche App" />
+  <meta name="theme-color" content="#1B3022" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="icon" href="/icon-192.png" />
+
+  <!-- Firebase (kein Storage!) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <!-- Fonts & Icons -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,700;6..72,800&family=Work+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "outline-variant": "#c3c8c1",
+            "surface-container-highest": "#e5e2dd",
+            "tertiary": "#291007",
+            "surface-tint": "#4d6453",
+            "on-secondary-container": "#6d5000",
+            "primary-container": "#1b3022",
+            "on-error": "#ffffff",
+            "tertiary-container": "#41241a",
+            "on-surface-variant": "#434843",
+            "error-container": "#ffdad6",
+            "surface-bright": "#fcf9f4",
+            "outline": "#737973",
+            "tertiary-fixed": "#ffdbcf",
+            "primary": "#061b0e",
+            "on-surface": "#1c1c19",
+            "secondary-container": "#ffbf00",
+            "primary-fixed": "#d0e9d4",
+            "surface-container-lowest": "#ffffff",
+            "surface-variant": "#e5e2dd",
+            "surface": "#fcf9f4",
+            "on-secondary": "#ffffff",
+            "surface-container-high": "#ebe8e3",
+            "tertiary-fixed-dim": "#ebbcac",
+            "on-tertiary": "#ffffff",
+            "on-primary": "#ffffff",
+            "on-primary-container": "#819986",
+            "surface-container": "#f0ede8",
+            "inverse-on-surface": "#f3f0eb",
+            "secondary-fixed": "#ffdfa0",
+            "background": "#fcf9f4",
+            "on-background": "#1c1c19",
+            "error": "#ba1a1a",
+            "secondary": "#795900",
+            "surface-dim": "#dcdad5",
+            "inverse-primary": "#b4cdb8",
+            "on-tertiary-container": "#b3897a",
+            "surface-container-low": "#f6f3ee",
+          },
+          fontFamily: {
+            "headline": ["Newsreader", "serif"],
+            "body": ["Work Sans", "sans-serif"],
+            "label": ["Work Sans", "sans-serif"]
+          },
+          borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .filled-icon {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    body {
+      font-family: 'Work Sans', sans-serif;
+      background-color: #fcf9f4;
+      min-height: 100dvh;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: 'Newsreader', serif;
+    }
+
+    /* Pages */
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    /* Auth page */
+    #page-auth {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100dvh;
+      padding: 40px 24px;
+    }
+
+    #page-auth.hidden {
+      display: none;
+    }
+
+    /* Loading */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: #fcf9f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .loading-bounce {
+      animation: bounce 1s infinite alternate;
+      font-size: 4rem;
+    }
+
+    @keyframes bounce {
+      from {
+        transform: translateY(0);
+      }
+
+      to {
+        transform: translateY(-14px);
+      }
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 96px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1B3022;
+      color: #f1c40f;
+      padding: 12px 22px;
+      border-radius: 100px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      z-index: 2000;
+      white-space: nowrap;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      font-family: 'Work Sans', sans-serif;
+    }
+
+    #toast.hidden {
+      opacity: 0;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: #fcf9f4;
+      border-radius: 20px 20px 0 0;
+      padding: 24px 24px max(24px, env(safe-area-inset-bottom));
+      width: 100%;
+      max-height: 92vh;
+      overflow-y: auto;
+      transform: translateY(24px);
+      transition: transform 0.25s;
+    }
+
+    .modal-overlay.open .modal {
+      transform: translateY(0);
+    }
+
+    .modal-handle {
+      width: 36px;
+      height: 4px;
+      background: #c3c8c1;
+      border-radius: 2px;
+      margin: 0 auto 20px;
+    }
+
+    /* Ritter-Animation */
+    .ritter-container {
+      position: fixed;
+      top: 40%;
+      left: 0;
+      pointer-events: none;
+      z-index: 9500;
+      white-space: nowrap;
+      animation: ritterride 3.5s linear forwards;
+    }
+
+    @keyframes ritterride {
+      0% {
+        transform: translateX(-150px)
+      }
+
+      100% {
+        transform: translateX(110vw)
+      }
+    }
+
+    .ritter-inner {
+      font-size: 3rem;
+      line-height: 1;
+      animation: ritterbob 0.3s ease-in-out infinite alternate;
+    }
+
+    @keyframes ritterbob {
+      from {
+        transform: translateY(0)
+      }
+
+      to {
+        transform: translateY(-8px)
+      }
+    }
+
+    /* Zonk-Animation */
+    .zonk-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9000;
+      overflow: hidden;
+    }
+
+    .zonk-piece {
+      position: absolute;
+      animation: zonkfall linear forwards;
+    }
+
+    @keyframes zonkfall {
+      0% {
+        transform: translateY(-20px) rotate(0deg);
+        opacity: 1
+      }
+
+      100% {
+        transform: translateY(110vh) rotate(-180deg);
+        opacity: 0
+      }
+    }
+
+    .zonk-flash {
+      position: fixed;
+      inset: 0;
+      background: rgba(186, 26, 26, 0.25);
+      pointer-events: none;
+      z-index: 8999;
+      animation: flashout 0.8s ease-out forwards;
+    }
+
+    @keyframes flashout {
+      0% {
+        opacity: 1
+      }
+
+      100% {
+        opacity: 0
+      }
+    }
+
+    /* Konfetti */
+    .konfetti-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9000;
+      overflow: hidden;
+    }
+
+    .konfetti-piece {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      animation: kfall linear forwards;
+    }
+
+    @keyframes kfall {
+      0% {
+        transform: translateY(-20px) rotate(0deg);
+        opacity: 1
+      }
+
+      100% {
+        transform: translateY(110vh) rotate(720deg);
+        opacity: 0
+      }
+    }
+
+    /* PINK EXCESS MODE – persönlich, nur für dieses Gerät */
+    body.pink-excess-mode {
+      background: linear-gradient(135deg, #ff1493, #ff69b4, #da70d6, #ff1493) !important;
+      background-size: 400% 400% !important;
+      animation: glitterbg 3s ease infinite !important;
+    }
+
+    body.pink-excess-mode header {
+      background: linear-gradient(to bottom, #c2185b, #880e4f) !important;
+    }
+
+    body.pink-excess-mode nav {
+      background: rgba(194, 24, 91, 0.6) !important;
+    }
+
+    body.pink-excess-mode [style*="background:#1B3022"],
+    body.pink-excess-mode [style*="background:linear-gradient(135deg,#1B3022"] {
+      background: linear-gradient(135deg, #e91e8c, #c2185b) !important;
+    }
+
+    body.pink-excess-mode [style*="background:#fff"],
+    body.pink-excess-mode [style*="background:#fcf9f4"],
+    body.pink-excess-mode [style*="background:#f6f3ee"],
+    body.pink-excess-mode [style*="background:#f0ede8"],
+    body.pink-excess-mode [style*="background:#e5e2dd"] {
+      background: rgba(255, 200, 230, 0.7) !important;
+      backdrop-filter: blur(6px) !important;
+    }
+
+    /* Theme overrides */
+    body.theme-spring {
+      background-color: #f0fdf4 !important;
+    }
+
+    /* GLITTER THEME 💖✨ */
+    body.theme-glitter {
+      background: linear-gradient(135deg, #f8bbdb, #e8b4e8, #c9a0dc, #f8bbdb) !important;
+      background-size: 400% 400% !important;
+      animation: glitterbg 5s ease infinite !important;
+    }
+
+    @keyframes glitterbg {
+      0% {
+        background-position: 0% 50%
+      }
+
+      50% {
+        background-position: 100% 50%
+      }
+
+      100% {
+        background-position: 0% 50%
+      }
+    }
+
+    /* Karten – Lavendel statt dunkelgrün */
+    body.theme-glitter [style*="background:#1B3022"],
+    body.theme-glitter [style*="background: #1B3022"],
+    body.theme-glitter [style*="background:linear-gradient(135deg,#1B3022"],
+    body.theme-glitter [style*="background: linear-gradient(135deg, #1B3022"] {
+      background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
+    }
+
+    body.theme-glitter [style*="border-left:4px solid #1B3022"],
+    body.theme-glitter [style*="border-left: 4px solid #1B3022"] {
+      border-left-color: #9b59b6 !important;
+    }
+
+    /* Regel-Nummern und andere #1B3022 Elemente */
+    body.theme-glitter header {
+      background: linear-gradient(to bottom, #8e44ad, #6c3483) !important;
+    }
+
+    body.theme-glitter nav {
+      background: rgba(142, 68, 173, 0.5) !important;
+    }
+
+    /* Weiße Karten leicht transparent */
+    body.theme-glitter [style*="background:#fff"],
+    body.theme-glitter [style*="background: #fff"],
+    body.theme-glitter [style*="background:#ffffff"],
+    body.theme-glitter [style*="background:#fcf9f4"],
+    body.theme-glitter [style*="background: #fcf9f4"] {
+      background: rgba(255, 255, 255, 0.82) !important;
+      backdrop-filter: blur(6px) !important;
+    }
+
+    body.theme-glitter [style*="background:#f6f3ee"],
+    body.theme-glitter [style*="background: #f6f3ee"],
+    body.theme-glitter [style*="background:#f0ede8"],
+    body.theme-glitter [style*="background:#e5e2dd"],
+    body.theme-glitter [style*="background:#ebe8e3"] {
+      background: rgba(225, 200, 240, 0.5) !important;
+    }
+
+    /* Glitzer-Partikel */
+    .glitter-particle {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9100;
+      animation: glitterfall linear infinite;
+    }
+
+    @keyframes glitterfall {
+      0% {
+        transform: translateY(-30px) rotate(0deg);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(110vh) rotate(360deg);
+        opacity: 0.2;
+      }
+    }
+
+    /* Schmetterling */
+    .butterfly {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9101;
+      font-size: 2.5rem;
+      animation: butterflyfly linear forwards;
+      filter: drop-shadow(0 0 6px rgba(255, 100, 200, 0.6));
+    }
+
+    @keyframes butterflyfly {
+      0% {
+        transform: translateX(-80px) translateY(0px) rotate(-5deg);
+        opacity: 0;
+      }
+
+      5% {
+        opacity: 1;
+      }
+
+      25% {
+        transform: translateX(25vw) translateY(-40px) rotate(5deg);
+      }
+
+      50% {
+        transform: translateX(50vw) translateY(20px) rotate(-8deg);
+      }
+
+      75% {
+        transform: translateX(75vw) translateY(-30px) rotate(6deg);
+      }
+
+      95% {
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateX(110vw) translateY(10px) rotate(-3deg);
+        opacity: 0;
+      }
+    }
+
+    /* Input focus ring */
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      ring: none;
+      border-color: #ffbf00 !important;
+      box-shadow: 0 0 0 2px rgba(255, 191, 0, 0.3);
+    }
+
+    /* Drink emoji icon */
+    .drink-emoji-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: #f0ede8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+
+<body class="text-on-background selection:bg-secondary-container">
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loading-bounce">🍺</div>
+    <p style="color:#1B3022;font-family:'Newsreader',serif;margin-top:16px;font-size:1.2rem;">Osterbiersuche wird
+      geladen…</p>
+  </div>
+
+  <!-- Toast -->
+  <div class="hidden" id="toast"></div>
+
+  <!-- Konfetti -->
+  <div class="konfetti-container" id="konfetti"></div>
+  <div class="zonk-container" id="zonk-container"></div>
+
+  <!-- ==============================
+     AUTH PAGE
+     ============================== -->
+  <div id="page-auth" class="hidden" style="background: linear-gradient(160deg, #fcf9f4 0%, #fdeac7 100%);">
+    <div style="font-size:4.5rem;margin-bottom:16px;">🐣</div>
+    <h1 style="font-family:'Newsreader',serif;font-size:2.4rem;color:#061b0e;text-align:center;margin-bottom:6px;">
+      Osterbiersuche</h1>
+    <p style="color:#737973;text-align:center;margin-bottom:32px;font-size:0.9rem;">Karfreitag, 3. April 2026</p>
+
+    <div
+      style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 4px 24px rgba(6,27,14,0.1);">
+      <!-- Tabs -->
+      <div style="display:flex;border-bottom:2px solid #e5e2dd;margin-bottom:24px;">
+        <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')"
+          style="flex:1;padding:10px;text-align:center;cursor:pointer;font-weight:600;font-size:0.9rem;color:#434843;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:'Work Sans',sans-serif;">
+          Anmelden
+        </button>
+        <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')"
+          style="flex:1;padding:10px;text-align:center;cursor:pointer;font-weight:600;font-size:0.9rem;color:#434843;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:'Work Sans',sans-serif;">
+          Registrieren
+        </button>
+      </div>
+
+      <!-- Login -->
+      <div id="auth-login">
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">E-Mail</label>
+          <input type="email" id="login-email" placeholder="deine@email.de"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <div style="margin-bottom:20px;">
+          <label
+            style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Passwort</label>
+          <input type="password" id="login-pw" placeholder="••••••••"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <button onclick="doLogin()"
+          style="width:100%;background:#1B3022;color:#f1c40f;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:0.95rem;font-weight:700;font-family:'Work Sans',sans-serif;">
+          Anmelden 🍺
+        </button>
+        <p style="text-align:center;margin-top:12px;font-size:0.78rem;color:#737973;">
+          <a href="#" onclick="doPasswordReset()" style="color:#795900;">Passwort vergessen?</a>
+        </p>
+      </div>
+
+      <!-- Register -->
+      <div id="auth-register" style="display:none;">
+        <div style="margin-bottom:14px;">
+          <label
+            style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Anzeigename</label>
+          <input type="text" id="reg-name" placeholder="z.B. Hannes"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">E-Mail</label>
+          <input type="email" id="reg-email" placeholder="deine@email.de"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Passwort (min.
+            6 Zeichen)</label>
+          <input type="password" id="reg-pw" placeholder="••••••••"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+        <button onclick="doRegister()"
+          style="width:100%;background:#1B3022;color:#f1c40f;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:0.95rem;font-weight:700;font-family:'Work Sans',sans-serif;">
+          Account erstellen 🐰
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================
+     MAIN APP
+     ============================== -->
+  <div id="app" style="display:none;">
+
+    <!-- TOP APP BAR -->
+    <header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 shadow-sm"
+      style="background: linear-gradient(to bottom, #1B3022, #061b0e); border-radius: 0 0 12px 12px;">
+
+      <div class="flex items-center gap-2" onclick="showPage('mydrinks')" style="cursor:pointer;">
+        <span class="material-symbols-outlined" style="color:#f1c40f;">sports_bar</span>
+        <span id="app-ruler-name"
+          style="font-family:'Newsreader',serif;font-size:1.1rem;color:#f1c40f;font-weight:700;">Osterbiersuche</span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="header-admin-btn" style="display:none;background:none;border:none;cursor:pointer;"
+          onclick="showPage('admin')">
+          <span class="material-symbols-outlined" style="color:#f1c40f;font-size:1.2rem;">settings</span>
+        </button>
+        <div onclick="showPage('profile')" style="cursor:pointer;">
+          <div id="header-avatar"
+            class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold"
+            style="border-color:#f1c40f;background:#1b3022;color:#f1c40f;">?</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- PAGES CONTAINER -->
+    <main class="pt-20 pb-28 px-5 max-w-lg mx-auto" style="overflow-x:hidden;">
+
+      <!-- ===== HOME ===== -->
+      <div id="page-home" class="page active">
+        <!-- Hero -->
+        <section class="mb-6 text-center pt-4">
+          <p class="font-label text-xs uppercase tracking-widest mb-2" style="color:#737973;">Karfreitag · 3. April 2026
+          </p>
+          <h1 class="text-4xl font-extrabold mb-2"
+            style="color:#061b0e;font-family:'Newsreader',serif;line-height:1.1;">Osterbiersuche</h1>
+          <div
+            style="background:linear-gradient(135deg,#1B3022,#2d5a40);border-radius:20px;padding:20px;margin-bottom:16px;box-shadow:0 8px 24px rgba(6,27,14,0.18);display:flex;align-items:center;gap:16px;">
+            <div onclick="openRulerImage()"
+              style="width:72px;height:72px;border-radius:50%;border:3px solid #f1c40f;overflow:hidden;flex-shrink:0;background:#0f2418;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <img id="ruler-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
+              <video id="ruler-video" autoplay loop muted playsinline
+                style="width:100%;height:100%;object-fit:cover;display:none;"></video>
+              <span id="ruler-img-placeholder" style="font-size:2rem;">👑</span>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <p
+                style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.15em;color:rgba(241,196,15,0.7);margin-bottom:4px;">
+                Amtierender Herrscher</p>
+              <p id="home-ruler-badge"
+                style="font-family:'Newsreader',serif;font-size:1.4rem;font-weight:800;color:#f1c40f;line-height:1.2;margin:0;">
+                Lädt…</p>
+              <p id="home-ruler-title"
+                style="font-size:0.78rem;color:rgba(255,255,255,0.65);margin-top:4px;font-style:italic;"></p>
+            </div>
+          </div>
+
+          <!-- Wetter -->
+          <div id="weather-container" style="margin-bottom:14px;">
+            <div
+              style="background:#f6f3ee;border-radius:14px;padding:16px;text-align:center;color:#737973;font-size:0.85rem;border:1px solid #e5e2dd;">
+              Wetterdaten werden geladen…</div>
+          </div>
+
+          <!-- Event-Status Banner -->
+          <div id="event-banner" style="display:none;margin-bottom:14px;"></div>
+          <!-- Countdown -->
+          <div id="countdown-card"
+            style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:18px 20px;box-shadow:0 2px 8px rgba(6,27,14,0.06);">
+            <p
+              style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin-bottom:10px;">
+              Nächste Osterbiersuche</p>
+            <div style="display:flex;justify-content:center;gap:20px;">
+              <div>
+                <div id="cd-days"
+                  style="font-family:'Newsreader',serif;font-size:2.2rem;font-weight:800;color:#061b0e;">–</div>
+                <div style="font-size:0.68rem;color:#737973;text-transform:uppercase;letter-spacing:0.05em;">Tage</div>
+              </div>
+              <div style="color:#e5e2dd;font-size:2rem;align-self:center;">:</div>
+              <div>
+                <div id="cd-hours"
+                  style="font-family:'Newsreader',serif;font-size:2.2rem;font-weight:800;color:#061b0e;">–</div>
+                <div style="font-size:0.68rem;color:#737973;text-transform:uppercase;letter-spacing:0.05em;">Std</div>
+              </div>
+              <div style="color:#e5e2dd;font-size:2rem;align-self:center;">:</div>
+              <div>
+                <div id="cd-mins"
+                  style="font-family:'Newsreader',serif;font-size:2.2rem;font-weight:800;color:#061b0e;">–</div>
+                <div style="font-size:0.68rem;color:#737973;text-transform:uppercase;letter-spacing:0.05em;">Min</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Stats -->
+        <div
+          style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(6,27,14,0.05);">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+
+            <!-- Teilnehmer -->
+            <div style="background:#f6f3ee;border-radius:12px;padding:16px;text-align:center;">
+              <span style="font-size:1.4rem;display:block;margin-bottom:6px;">🥋</span>
+              <p
+                style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:6px;">
+                Teilnehmer</p>
+              <p id="stat-participants"
+                style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;margin:0;">–</p>
+            </div>
+
+            <!-- Biere getrunken -->
+            <div style="background:#f6f3ee;border-radius:12px;padding:16px;text-align:center;">
+              <span class="material-symbols-outlined"
+                style="color:#f1c40f;font-size:1.4rem;display:block;margin-bottom:6px;">sports_bar</span>
+              <p
+                style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:6px;">
+                Biere getrunken</p>
+              <p id="stat-beers-drunk"
+                style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;margin:0;">–</p>
+              <p id="stat-beers-total" style="font-size:0.68rem;color:#737973;margin-top:3px;">von – versteckt</p>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+
+            <!-- Biere noch im Umlauf -->
+            <div style="background:#f6f3ee;border-radius:12px;padding:16px;text-align:center;">
+              <span class="material-symbols-outlined"
+                style="color:#1B3022;font-size:1.4rem;display:block;margin-bottom:6px;">search</span>
+              <p
+                style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:6px;">
+                Biere im Umlauf</p>
+              <p id="stat-drinks"
+                style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;margin:0;">–</p>
+            </div>
+
+            <!-- Zonks im Umlauf -->
+            <div style="background:#f6f3ee;border-radius:12px;padding:16px;text-align:center;">
+              <img src="https://raw.githubusercontent.com/Jewels26/osterbiersuche/main/zonk.png"
+                style="width:24px;height:24px;display:block;margin:0 auto 6px;object-fit:contain;" />
+              <p
+                style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:6px;">
+                Zonks im Umlauf</p>
+              <p id="stat-zonks-left"
+                style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;margin:0;">–</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top 3 -->
+        <div
+          style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;box-shadow:0 2px 8px rgba(6,27,14,0.05);">
+          <h3 style="font-size:1.1rem;color:#061b0e;margin-bottom:14px;">🏆 Top 3 aktuell</h3>
+          <div id="home-top3">
+            <div style="text-align:center;padding:20px 0;color:#737973;font-size:0.85rem;">Noch keine Daten</div>
+          </div>
+          <button onclick="showPage('leaderboard')"
+            style="width:100%;margin-top:14px;background:#f0ede8;color:#1c1c19;padding:11px;border-radius:8px;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;font-family:'Work Sans',sans-serif;">
+            Vollständiges Leaderboard →
+          </button>
+        </div>
+      </div>
+
+      <!-- ===== LEADERBOARD ===== -->
+      <div id="page-leaderboard" class="page">
+        <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;color:#061b0e;padding:16px 0 12px;">🏆 Leaderboard
+        </h2>
+        <!-- Nächster Titel -->
+        <div
+          style="background:linear-gradient(135deg,#1B3022,#2d5a40);border-radius:16px;padding:16px 20px;margin-bottom:14px;box-shadow:0 4px 16px rgba(6,27,14,0.12);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <p
+              style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.15em;color:rgba(241,196,15,0.65);margin-bottom:4px;">
+              Dieser Titel wartet auf den Sieger</p>
+            <p id="leaderboard-next-title"
+              style="font-family:'Newsreader',serif;font-size:1.3rem;font-weight:800;color:#f1c40f;line-height:1.2;">
+              Drunken Daimyou</p>
+          </div>
+          <span style="font-size:2rem;">🏆</span>
+        </div>
+        <div id="leaderboard-list">
+          <div style="text-align:center;padding:40px 0;color:#737973;">Noch keine Einträge</div>
+        </div>
+      </div>
+
+      <!-- ===== MY DRINKS ===== -->
+      <div id="page-mydrinks" class="page">
+        <!-- Progress Header (Stitch-Style) -->
+        <section class="mb-6 text-center pt-4">
+          <p class="font-label text-xs uppercase tracking-widest mb-2" style="color:#737973;">Aktueller Fortschritt</p>
+          <h1 id="drinks-progress-text"
+            style="font-family:'Newsreader',serif;font-size:2.2rem;font-weight:800;color:#061b0e;margin-bottom:12px;">
+            0 von 10 Getränken
+          </h1>
+          <div style="width:100%;height:10px;background:#ebe8e3;border-radius:100px;overflow:hidden;margin-bottom:6px;">
+            <div id="drinks-bar"
+              style="height:100%;border-radius:100px;background:#ffbf00;box-shadow:0 0 10px rgba(255,191,0,0.5);width:0%;transition:width 0.5s ease;">
+            </div>
+          </div>
+        </section>
+
+        <!-- Trinkgeschwindigkeit -->
+        <div
+          style="background:#f6f3ee;border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+          <span class="material-symbols-outlined" style="color:#1B3022;font-size:1.4rem;">speed</span>
+          <div>
+            <p
+              style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:2px;">
+              Ø Trinkgeschwindigkeit</p>
+            <p id="drinks-pace-mydrinks"
+              style="font-family:'Newsreader',serif;font-size:1.2rem;font-weight:800;color:#061b0e;">–</p>
+          </div>
+        </div>
+
+        <!-- Code-Eingabe (Stitch-Style) -->
+        <div style="background:#e5e2dd;border-radius:14px;padding:20px;margin-bottom:20px;">
+          <label style="font-size:0.82rem;font-weight:600;color:#434843;display:block;margin-bottom:10px;">Kennzahl
+            eingeben</label>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;position:relative;">
+              <input type="text" id="found-code-input" placeholder="z.B. A1" maxlength="4"
+                style="width:100%;background:#fcf9f4;border:none;border-radius:8px;padding:14px 48px 14px 16px;font-size:1.5rem;font-weight:700;color:#061b0e;font-family:'Newsreader',serif;letter-spacing:2px;text-transform:uppercase;" />
+              <span class="material-symbols-outlined"
+                style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#737973;">search</span>
+            </div>
+            <button onclick="trackFoundDrink()"
+              style="background:#1B3022;color:#f1c40f;padding:14px 18px;border-radius:8px;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:700;font-family:'Work Sans',sans-serif;font-size:0.9rem;">
+              <span class="material-symbols-outlined filled-icon">sports_bar</span>
+              Trinken!
+            </button>
+          </div>
+        </div>
+
+        <!-- Consumed drinks -->
+        <div id="consumed-section" style="margin-bottom:20px;">
+          <p
+            style="font-size:0.8rem;font-weight:600;color:#737973;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">
+            Bereits getrunken</p>
+          <div id="consumed-drinks-list">
+            <div style="text-align:center;padding:24px 0;color:#737973;font-size:0.85rem;">
+              <span style="font-size:2rem;display:block;margin-bottom:8px;">🔍</span>Noch nichts gefunden
+            </div>
+          </div>
+        </div>
+
+        <div style="height:1px;background:#e5e2dd;margin:16px 0;"></div>
+
+        <!-- Hidden drinks -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <p style="font-size:0.8rem;font-weight:600;color:#737973;text-transform:uppercase;letter-spacing:0.08em;">
+              Meine versteckten Getränke</p>
+            <button onclick="openAddDrink()"
+              style="background:#1B3022;color:#f1c40f;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:0.78rem;font-weight:700;font-family:'Work Sans',sans-serif;">
+              + Hinzufügen
+            </button>
+          </div>
+          <div id="hidden-drinks-list">
+            <div style="text-align:center;padding:24px 0;color:#737973;font-size:0.85rem;">
+              <span style="font-size:2rem;display:block;margin-bottom:8px;">🥷</span>Noch keine Getränke angelegt
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== HALL OF FAME ===== -->
+      <div id="page-hof" class="page">
+        <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;color:#061b0e;padding:16px 0 12px;">👑 Hall of Fame
+        </h2>
+        <div id="hof-list">
+          <div style="text-align:center;padding:40px 0;color:#737973;font-size:0.85rem;">
+            <span style="font-size:2.5rem;display:block;margin-bottom:10px;">👑</span>
+            Noch keine Einträge – füge sie im Admin-Bereich hinzu!
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ARCHIV ===== -->
+      <div id="page-archive" class="page">
+        <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;color:#061b0e;padding:16px 0 4px;">🗃️ Archiv</h2>
+        <p style="font-size:0.82rem;color:#737973;margin-bottom:16px;">Die Ergebnisse vergangener Osterbiersuchen.</p>
+        <div id="archive-list">
+          <div style="text-align:center;padding:40px 0;color:#737973;font-size:0.85rem;">
+            <span style="font-size:2.5rem;display:block;margin-bottom:10px;">📦</span>
+            Noch kein Archiv – der Admin kann das aktuelle Leaderboard am Ende des Events archivieren.
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RULES & WEATHER ===== -->
+      <div id="page-rules" class="page">
+        <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;color:#061b0e;padding:16px 0 12px;">📋 Die Regeln
+        </h2>
+
+
+        <div
+          style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;box-shadow:0 2px 8px rgba(6,27,14,0.05);">
+          <div id="rules-list"></div>
+        </div>
+      </div>
+
+      <!-- ===== PROFILE ===== -->
+      <div id="page-profile" class="page">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <div id="profile-avatar-display"
+            style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#1B3022,#4d6453);color:#f1c40f;font-family:'Newsreader',serif;font-size:2.2rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:3px solid #f1c40f; transition: all 0.3s ease;">
+            ?
+          </div>
+          <div id="profile-name-display"
+            style="font-family:'Newsreader',serif;font-size:1.4rem;font-weight:700;color:#061b0e;">Lädt…</div>
+          <div id="profile-email-display" style="font-size:0.8rem;color:#737973;margin-top:2px;"></div>
+
+          <div style="margin-top:24px; padding-top:20px; border-top: 1px solid #e5e2dd;">
+            <p
+              style="font-size:0.7rem; color:#737973; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; font-weight:700;">
+              Wähle deinen Charakter</p>
+            <div
+              style="display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; background:#f4f1ec; padding:12px; border-radius:16px; border:1px solid #e5e2dd;">
+              <span onclick="updateUserAvatar('🐰')" class="av-btn">🐰</span>
+              <span onclick="updateUserAvatar('🐣')" class="av-btn">🐣</span>
+              <span onclick="updateUserAvatar('🥚')" class="av-btn">🥚</span>
+              <span onclick="updateUserAvatar('🥕')" class="av-btn">🥕</span>
+              <span onclick="updateUserAvatar('🦊')" class="av-btn">🦊</span>
+              <span onclick="updateUserAvatar('🍺')" class="av-btn">🍺</span>
+              <span onclick="updateUserAvatar('🥨')" class="av-btn">🥨</span>
+              <span onclick="updateUserAvatar('🥴')" class="av-btn">🥴</span>
+              <span onclick="updateUserAvatar('🏴‍☠️')" class="av-btn">🏴‍☠️</span>
+              <span onclick="updateUserAvatar('👑')" class="av-btn">👑</span>
+              <span onclick="updateUserAvatar('👸')" class="av-btn">👸</span>
+              <span onclick="updateUserAvatar('🏰')" class="av-btn">🏰</span>
+              <span onclick="updateUserAvatar('🧙‍♂️')" class="av-btn">🧙‍♂️</span>
+              <span onclick="updateUserAvatar('🥦')" class="av-btn">🥦</span>
+              <span onclick="updateUserAvatar('🦤')" class="av-btn">🦤</span>
+              <span onclick="updateUserAvatar('🦞')" class="av-btn">🦞</span>
+              <span onclick="updateUserAvatar('🐉')" class="av-btn">🐉</span>
+              <span onclick="updateUserAvatar('🥐')" class="av-btn">🥐</span>
+              <span onclick="updateUserAvatar('🦩')" class="av-btn">🦩</span>
+              <span onclick="updateUserAvatar('🦇')" class="av-btn">🦇</span>
+              <span onclick="updateUserAvatar('🥒')" class="av-btn">🥒</span>
+              <span onclick="updateUserAvatar('🐐')" class="av-btn">🐐</span>
+              <span onclick="updateUserAvatar('🦫')" class="av-btn">🦫</span>
+              <span onclick="updateUserAvatar('🍆')" class="av-btn">🍆</span>
+              <span onclick="updateUserAvatar('🐒')" class="av-btn">🐒</span>
+              <span onclick="updateUserAvatar('🐙')" class="av-btn">🐙</span>
+              <span onclick="updateUserAvatar('🐡')" class="av-btn">🐡</span>
+              <span onclick="updateUserAvatar('🌶️')" class="av-btn">🌶️</span>
+              <span onclick="updateUserAvatar('🐩')" class="av-btn">🐩</span>
+              <span onclick="updateUserAvatar('🐗')" class="av-btn">🐗</span>
+              <span onclick="updateUserAvatar('🍖')" class="av-btn">🍖</span>
+              <span onclick="updateUserAvatar('🦕')" class="av-btn">🦕</span>
+              <span onclick="updateUserAvatar('🐿️')" class="av-btn">🐿️</span>
+              <span onclick="updateUserAvatar('🦐')" class="av-btn">🦐</span>
+              <span onclick="updateUserAvatar('🐌')" class="av-btn">🐌</span>
+              <span onclick="updateUserAvatar('🌵')" class="av-btn">🌵</span>
+              <span onclick="updateUserAvatar('🦑')" class="av-btn">🦑</span>
+              <span onclick="updateUserAvatar('🦖')" class="av-btn">🦖</span>
+              <span onclick="updateUserAvatar('🐱')" class="av-btn">🐱</span>
+              <span onclick="updateUserAvatar('🦃')" class="av-btn">🦃</span>
+              <span onclick="updateUserAvatar('🪳')" class="av-btn">🪳</span>
+              <span onclick="updateUserAvatar('🦄')" class="av-btn">🦄</span>
+            </div>
+          </div>
+        </div>
+
+        <style>
+          .av-btn {
+            cursor: pointer;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            transition: transform 0.1s ease;
+          }
+
+          .av-btn:hover {
+            transform: scale(1.3);
+          }
+
+          .av-btn:active {
+            transform: scale(0.9);
+          }
+        </style>
+
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <p style="font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:8px;">Anzeigename ändern</p>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="profile-name-input" placeholder="Dein Name"
+              style="flex:1;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            <button onclick="updateDisplayName()"
+              style="background:#1B3022;color:#f1c40f;padding:11px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;font-size:0.85rem;">
+              Speichern
+            </button>
+          </div>
+        </div>
+
+        <!-- My Stats -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3 style="font-size:1rem;color:#061b0e;margin-bottom:14px;">Meine Statistik</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div style="background:#f6f3ee;border-radius:10px;padding:14px;border-left:3px solid #ffbf00;">
+              <span class="material-symbols-outlined" style="color:#ffbf00;font-size:1.1rem;">sports_bar</span>
+              <p
+                style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin:4px 0 2px;">
+                Getrunken</p>
+              <p id="stat-my-drinks"
+                style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;">–</p>
+            </div>
+            <div style="background:#f6f3ee;border-radius:10px;padding:14px;">
+              <span class="material-symbols-outlined" style="color:#061b0e;font-size:1.1rem;">water_drop</span>
+              <p
+                style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin:4px 0 2px;">
+                Reiner Alkohol</p>
+              <p id="stat-my-alc"
+                style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;">–</p>
+            </div>
+          </div>
+          <div style="background:#f6f3ee;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
+            <span class="material-symbols-outlined" style="color:#1B3022;font-size:1.2rem;">speed</span>
+            <div>
+              <p
+                style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:2px;">
+                Ø Trinkgeschwindigkeit</p>
+              <p id="drinks-pace-profile"
+                style="font-family:'Newsreader',serif;font-size:1.4rem;font-weight:800;color:#061b0e;">–</p>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="confirmParticipation()"
+          style="width:100%;background:#ffbf00;color:#061b0e;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:0.95rem;font-weight:700;margin-bottom:12px;">
+          🍺 Teilnahme bestätigen
+        </button>
+
+        <!-- Easter Egg 🥚 -->
+        <div style="text-align:right;margin-bottom:8px;padding-right:4px;">
+          <span id="easter-egg-btn" onclick="handleEasterEggTap()"
+            style="font-size:0.9rem;cursor:pointer;user-select:none;opacity:0.15;transition:opacity 0.3s;"
+            title="">🥚</span>
+        </div>
+
+        <button onclick="doLogout()"
+          style="width:100%;background:#ffdad6;color:#93000a;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:0.95rem;font-weight:700;font-family:'Work Sans',sans-serif;">
+          Abmelden
+        </button>
+      </div>
+
+      <!-- ===== ADMIN ===== -->
+      <div id="page-admin" class="page" style="overflow-x:hidden;max-width:100%;">
+        <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;color:#061b0e;padding:16px 0 12px;">⚙️ Admin</h2>
+
+        <!-- Theme -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            App-Theme & Herrscher</h3>
+          <div style="margin-bottom:12px;">
+            <label
+              style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Herrscher-Name</label>
+            <input type="text" id="admin-ruler-name" placeholder="z.B. 👑 Bier-König Hannes"
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Nächster
+              Titel (auf Home Screen)</label>
+            <input type="text" id="admin-next-title" placeholder="z.B. Drunken Daimyou"
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label
+              style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Foto-URL</label>
+            <input type="url" id="admin-ruler-image" placeholder="https://raw.githubusercontent.com/..."
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.85rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            <p style="font-size:0.72rem;color:#737973;margin-top:4px;">Bild in GitHub hochladen und raw-Link einfügen.
+            </p>
+          </div>
+          <div style="margin-bottom:14px;">
+            <label
+              style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Theme</label>
+            <select id="admin-theme"
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;">
+              <option value="">Standard (Dunkelgrün & Gold)</option>
+              <option value="theme-spring">Frühlingswiese (Hell-Grün)</option>
+              <option value="theme-glitter">💖 Glitter & Pink (All Out)</option>
+            </select>
+          </div>
+          <button onclick="saveTheme()"
+            style="width:100%;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            Theme speichern
+          </button>
+        </div>
+
+        <!-- Event Status -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Event-Status</h3>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Geschlecht
+              des Gewinners</label>
+            <select id="admin-winner-gender"
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;">
+              <option value="male">Männlich 👨</option>
+              <option value="female">Weiblich 👩</option>
+            </select>
+          </div>
+          <select id="admin-event-status"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;margin-bottom:12px;">
+            <option value="upcoming">Kommend (Countdown)</option>
+            <option value="active">Aktiv 🟢 (Suche läuft)</option>
+            <option value="ended">Beendet 🏁</option>
+          </select>
+          <button onclick="saveEventStatus()"
+            style="width:100%;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            Status speichern
+          </button>
+          <button onclick="archiveCurrentLeaderboard()" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#795900,#ffbf00);color:#fff;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            🗃️ Aktuelles Leaderboard archivieren
+          </button>
+        </div>
+
+        <!-- Hall of Fame -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Hall of Fame Eintrag hinzufügen</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label
+                style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Jahr</label>
+              <input type="number" id="admin-hof-year" placeholder="2025"
+                style="width:100%;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Reiner
+                Alkohol (g)</label>
+              <input type="number" id="admin-hof-alcohol" placeholder="86.4" step="0.1"
+                style="width:100%;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            </div>
+          </div>
+          <div style="margin-bottom:8px;">
+            <label
+              style="display:flex;align-items:center;gap:8px;font-size:0.78rem;font-weight:600;color:#1B3022;cursor:pointer;">
+              <input type="checkbox" id="admin-hof-na"
+                onchange="document.getElementById('admin-hof-alcohol').disabled=this.checked;document.getElementById('admin-hof-alcohol').value='';" />
+              Alkohol als N/A eintragen (z.B. für die Urzeit vor der App)
+            </label>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Name des
+              Gewinners</label>
+            <input type="text" id="admin-hof-name" placeholder="Hannes"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+          </div>
+          <div style="margin-bottom:10px;">
+            <label
+              style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Titel</label>
+            <input type="text" id="admin-hof-title" placeholder='z.B. "Der Gerstenmönch"'
+              style="width:100%;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+          </div>
+          <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Foto-URL
+              (GitHub Raw-Link)</label>
+            <input type="url" id="admin-hof-image" placeholder="https://raw.githubusercontent.com/..."
+              style="width:100%;padding:10px 12px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.85rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            <p style="font-size:0.7rem;color:#737973;margin-top:3px;">Bild quadratisch auf GitHub hochladen, Raw-Link
+              einfügen.</p>
+          </div>
+          <button id="admin-hof-save-btn" onclick="addHofEntry()"
+            style="width:100%;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            Eintrag speichern 👑
+          </button>
+        </div>
+
+        <!-- Rules -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Regeln bearbeiten</h3>
+          <div id="admin-rules-list" style="margin-bottom:12px;"></div>
+          <input type="text" id="admin-new-rule" placeholder="Neue Regel eingeben…"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.88rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;margin-bottom:10px;" />
+          <button onclick="addRule()"
+            style="width:100%;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            Regel hinzufügen
+          </button>
+        </div>
+
+        <!-- Buchstaben-Zuweisung -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:12px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Buchstaben-Zuweisung</h3>
+          <p style="font-size:0.78rem;color:#737973;margin-bottom:12px;">Weise jedem Teilnehmer einen Buchstaben zu
+            (z.B. H für Hannes). Dieser wird für die Kennzahlen verwendet.</p>
+          <div id="letter-assignment-list" style="margin-bottom:12px;"></div>
+          <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">E-Mail des
+              Nutzers</label>
+            <input type="email" id="admin-assign-email" placeholder="nutzer@email.de"
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.88rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:0.78rem;font-weight:600;color:#1B3022;margin-bottom:5px;">Buchstabe (1
+              Zeichen)</label>
+            <input type="text" id="admin-assign-letter" placeholder="A" maxlength="1"
+              style="width:100%;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:1.1rem;font-weight:700;font-family:'Newsreader',serif;text-transform:uppercase;background:#fcf9f4;color:#1c1c19;text-align:center;" />
+          </div>
+          <button onclick="assignLetter()"
+            style="width:100%;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            Buchstaben zuweisen ✓
+          </button>
+        </div>
+
+        <!-- Teilnehmer Reset-->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:20px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Teilnehmer zurücksetzen
+          </h3>
+
+          <button onclick="resetCounter()"
+            style="width:100%;background:#f0ede8;color:#1c1c19;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;margin-bottom:10px;">
+            🔄 Teilnehmer-Counter zurücksetzen
+          </button>
+          <button onclick="resetParticipants()"
+            style="width:100%;background:#ffdad6;color:#93000a;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;margin-bottom:10px;">
+            🗑️ Alle getrunkenen Getränke löschen
+          </button>
+          <button onclick="resetHiddenDrinks()"
+            style="width:100%;background:#ffdad6;color:#93000a;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+            🗑️ Alle versteckten Getränke löschen
+          </button>
+        </div>
+
+        <!-- Password Reset -->
+        <div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:20px;">
+          <h3
+            style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;margin-bottom:14px;">
+            Passwort-Reset für Nutzer</h3>
+          <div style="display:flex;gap:8px;">
+            <input type="email" id="admin-reset-email" placeholder="nutzer@email.de"
+              style="flex:1;padding:11px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.88rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+            <button onclick="adminPasswordReset()"
+              style="background:#f0ede8;color:#1c1c19;padding:11px 14px;border-radius:8px;border:1px solid #e5e2dd;cursor:pointer;font-weight:600;font-family:'Work Sans',sans-serif;font-size:0.85rem;">
+              Senden
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- BOTTOM NAV (Stitch-Style) -->
+    <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pt-2"
+      style="padding-bottom: max(20px, env(safe-area-inset-bottom)); background: rgba(27,48,34,0.45); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-radius: 20px 20px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,0.12);">
+
+      <button class="nav-item" data-page="home" onclick="showPage('home')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:#f1c40f;border:none;color:#061b0e;border-radius:10px;transition:transform 0.15s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined filled-icon" style="font-size:1.4rem;">home_storage</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Home</span>
+      </button>
+
+      <button class="nav-item" data-page="mydrinks" onclick="showPage('mydrinks')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:none;border:none;color:rgba(241,248,233,0.55);transition:color 0.2s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;">sports_bar</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Getränke</span>
+      </button>
+
+      <button class="nav-item" data-page="leaderboard" onclick="showPage('leaderboard')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:none;border:none;color:rgba(241,248,233,0.55);transition:color 0.2s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;">military_tech</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Ranking</span>
+      </button>
+
+      <button class="nav-item" data-page="hof" onclick="showPage('hof')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:none;border:none;color:rgba(241,248,233,0.55);transition:color 0.2s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;">trophy</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Ruhm</span>
+      </button>
+
+      <button class="nav-item" data-page="archive" onclick="showPage('archive')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:none;border:none;color:rgba(241,248,233,0.55);transition:color 0.2s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;">history</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Archiv</span>
+      </button>
+
+      <button class="nav-item" data-page="rules" onclick="showPage('rules')"
+        style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 12px;background:none;border:none;color:rgba(241,248,233,0.55);transition:color 0.2s;font-family:'Work Sans',sans-serif;">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;">menu_book</span>
+        <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Regeln</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ==============================
+     MODAL: Herrscher-Bild Vollbild
+     ============================== -->
+  <div class="modal-overlay" id="modal-ruler-img" onclick="closeMediaModal()" style="align-items:center;">
+    <div style="max-width:100vw;width:100%;padding:20px;position:relative;">
+      <img id="ruler-img-fullscreen" src="" alt=""
+        style="max-width:100%;max-height:85vh;width:auto;height:auto;border-radius:16px;display:none;margin:0 auto;box-shadow:0 16px 48px rgba(0,0,0,0.4);" />
+      <video id="ruler-video-fullscreen"
+        style="max-width:100%;max-height:85vh;width:auto;height:auto;border-radius:16px;display:none;margin:0 auto;box-shadow:0 16px 48px rgba(0,0,0,0.4);"
+        playsinline muted>
+      </video>
+      <p style="text-align:center;color:#fff;margin-top:12px;font-size:0.85rem;opacity:0.7;">Tippen zum Schließen</p>
+    </div>
+  </div>
+
+  <!-- ==============================
+     MODAL: Archiv Detail
+     ============================== -->
+  <div class="modal-overlay" id="modal-archive-detail">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div id="archive-detail-content"></div>
+      <button onclick="closeModal('modal-archive-detail')"
+        style="width:100%;margin-top:16px;background:#f0ede8;color:#1c1c19;padding:13px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-family:'Work Sans',sans-serif;">
+        Schließen
+      </button>
+    </div>
+  </div>
+
+  <!-- ==============================
+     MODAL: Getränk hinzufügen
+     ============================== -->
+  <div class="modal-overlay" id="modal-add-drink">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3 style="font-family:'Newsreader',serif;font-size:1.4rem;color:#061b0e;margin-bottom:20px;">🍺 Getränk anlegen
+      </h3>
+      <p
+        style="font-size:0.8rem;color:#737973;margin-bottom:16px;background:#f6f3ee;border-radius:8px;padding:10px 12px;">
+        Kein Foto nötig – gib einfach Name und Werte ein. Die App generiert automatisch eine Kennzahl für dich.
+      </p>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Name des
+          Getränks</label>
+        <input type="text" id="drink-name" placeholder="z.B. Helles Löwenbräu"
+          style="width:100%;padding:12px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Ist das ein
+          Zonk? (Alkoholfrei)</label>
+        <select id="drink-is-zonk" onchange="toggleAlcFields(this.value)"
+          style="width:100%;padding:12px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.92rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;">
+          <option value="no">Nein, normales Bier 🍺</option>
+          <option value="yes">Ja, Zonk! 🐭</option>
+        </select>
+      </div>
+      <div id="drink-alcohol-fields">
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Alkoholgehalt
+            (%)</label>
+          <input type="number" id="drink-alc" placeholder="5.0" step="0.1" min="0" max="100"
+            style="width:100%;padding:12px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:0.82rem;font-weight:600;color:#1B3022;margin-bottom:6px;">Menge
+          (ml)</label>
+        <input type="number" id="drink-ml" placeholder="500"
+          style="width:100%;padding:12px 14px;border:1.5px solid #e5e2dd;border-radius:8px;font-size:0.95rem;font-family:'Work Sans',sans-serif;background:#fcf9f4;color:#1c1c19;" />
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal('modal-add-drink')"
+          style="flex:1;background:#f0ede8;color:#1c1c19;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-family:'Work Sans',sans-serif;">
+          Abbrechen
+        </button>
+        <button onclick="saveDrink()"
+          style="flex:2;background:#1B3022;color:#f1c40f;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">
+          Getränk speichern ✓
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==============================
+     MODAL: Gefundenes Getränk bestätigen (Stitch-Style Result Card)
+     ============================== -->
+  <div class="modal-overlay" id="modal-confirm-drink">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <!-- Result Card in Stitch style -->
+      <div style="position:relative;">
+        <div style="position:absolute;top:-8px;right:0;z-index:10;">
+          <span
+            style="background:#41241a;color:#ebbcac;padding:5px 14px;border-radius:100px;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.15em;font-weight:700;">Gefunden!</span>
+        </div>
+        <div id="confirm-drink-info"
+          style="background:#fff;border-radius:14px;border:1px solid #e5e2dd;overflow:hidden;margin-bottom:20px;box-shadow:0 8px 32px rgba(0,0,0,0.06);">
+          <!-- Filled dynamically -->
+        </div>
+      </div>
+      <p style="font-size:0.85rem;color:#737973;margin-bottom:16px;text-align:center;">
+        Du musst es jetzt sofort trinken! Bist du sicher?
+      </p>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal('modal-confirm-drink')"
+          style="flex:1;background:#f0ede8;color:#1c1c19;padding:13px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-family:'Work Sans',sans-serif;">
+          Abbrechen
+        </button>
+        <button onclick="confirmDrinkConsumption()"
+          style="flex:2;background:#ffbf00;color:#061b0e;padding:13px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;font-size:1rem;display:flex;align-items:center;justify-content:center;gap:8px;">
+          Bestätigen &amp; Trinken!
+          <span class="material-symbols-outlined filled-icon" style="font-size:1.1rem;">sports_bar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ================================================
+    // FIREBASE CONFIG
+    // ================================================
+    // ⚠️ HIER DEINE FIREBASE CONFIG EINTRAGEN (aus Projekteinstellungen):
+    const firebaseConfig = {
+      apiKey: "AIzaSyAW60lLKtERvo3pzQ9hYU8hf4s6_cGNgDg",
+      authDomain: "osterbiersuche.firebaseapp.com",
+      projectId: "osterbiersuche",
+      storageBucket: "osterbiersuche.firebasestorage.app",
+      messagingSenderId: "607449905969",
+      appId: "1:607449905969:web:e3e28a0b039387d52dce10"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    // Kein Storage mehr!
+
+    // ================================================
+    // STATE
+    // ================================================
+    let currentUser = null;
+    let currentUserDoc = null;
+    let pendingFoundDrink = null;
+    let editingDrinkId = null;
+    let allUsersCache = {};
+    let ADMIN_EMAILS = [];
+
+    const DEFAULT_RULES = [
+      "Jeder Teilnehmer kauft vorab 8 Bier und 2 alkoholfreie Getränke (Zonks).",
+      "Der Veranstalter ist immer der Gewinner aus dem Vorjahr.",
+      "Jeder Teilnehmer bekommt beim Ankommen eine Zone zugewiesen, in der er seine Getränke versteckt.",
+      "Sobald alle Getränke versteckt sind, eröffnet der Veranstalter die Suche feierlich.",
+      "Man darf in allen Zonen suchen – außer in der eigenen.",
+      "Gefundene Getränke müssen sofort getrunken werden, bevor weitergesucht wird.",
+      "Jeder Teilnehmer darf maximal 10 Getränke trinken.",
+      "Jedes getrunkene Getränk wird in der App eingetragen (Kennzahl eingeben).",
+      "Wer nach 10 Getränken den höchsten reinen Alkohol (g) konsumiert hat, gewinnt.",
+      "Der Gewinner erhält einen Titel und ist nächstes Jahr Veranstalter.",
+      "Zonks (alkoholfreie Getränke) zählen zum Getränkelimit, bringen aber 0g Alkohol."
+    ];
+
+    // ================================================
+    // AUTH LISTENER
+    // ================================================
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        await loadUserDoc();
+        await loadAppSettings();
+        initApp();
+        document.getElementById('loading-screen').style.display = 'none';
+        document.getElementById('page-auth').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+      } else {
+        document.getElementById('loading-screen').style.display = 'none';
+        document.getElementById('page-auth').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
+      }
+    });
+
+    async function loadUserDoc() {
+      const ref = db.collection('users').doc(currentUser.uid);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        const name = currentUser.displayName || currentUser.email.split('@')[0];
+        await ref.set({ displayName: name, email: currentUser.email, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      }
+      currentUserDoc = (await ref.get()).data();
+    }
+
+    async function loadAppSettings() {
+      const snap = await db.collection('settings').doc('app').get();
+      if (snap.exists) {
+        const s = snap.data();
+        ADMIN_EMAILS = s.adminEmails || [];
+        if (s.theme) {
+          document.body.classList.remove('theme-spring', 'theme-glitter');
+          document.querySelectorAll('.glitter-particle, .butterfly').forEach(p => p.remove());
+          if (s.theme) document.body.classList.add(s.theme);
+          if (s.theme === 'theme-glitter') startGlitterParticles();
+        }
+        if (s.rulerName) {
+          document.getElementById('home-ruler-badge').textContent = s.rulerName;
+          document.getElementById('app-ruler-name').textContent = s.rulerName;
+        }
+        if (s.rulerTitle) document.getElementById('home-ruler-title').textContent = s.rulerTitle;
+        if (s.nextTitle) { const el = document.getElementById('leaderboard-next-title'); if (el) el.textContent = s.nextTitle; }
+        applyEventStatus(s.eventStatus || 'upcoming', s.nextTitle || '', s.winnerGender || 'male');
+        if (s.rulerImageUrl) {
+          const img = document.getElementById('ruler-img');
+          const vid = document.getElementById('ruler-video');
+          const ph = document.getElementById('ruler-img-placeholder');
+          ph.style.display = 'none';
+          if (s.rulerImageUrl.endsWith('.mp4')) {
+            img.style.display = 'none';
+            vid.src = s.rulerImageUrl;
+            vid.style.display = 'block';
+            vid.play();
+          } else {
+            vid.style.display = 'none';
+            img.src = s.rulerImageUrl;
+            img.style.display = 'block';
+          }
+        }
+      } else {
+        await db.collection('settings').doc('app').set({ adminEmails: [], theme: '', rulerName: '👑 Erster Veranstalter', eventStatus: 'upcoming', rules: DEFAULT_RULES });
+      }
+      if (ADMIN_EMAILS.includes(currentUser.email)) document.getElementById('header-admin-btn').style.display = 'block';
+    }
+
+    function initApp() {
+      updateHeaderAvatar();
+      if (localStorage.getItem('pinkExcessMode') === '1') {
+        document.body.classList.add('pink-excess-mode');
+        startGlitterParticles();
+      }
+      loadMyDrinks();
+      loadHallOfFame();
+      loadRules();
+      startCountdown();
+      loadWeather();
+
+      // Echtzeit-Listener: aktualisiert Leaderboard & Stats sofort wenn jemand ein Getränk einträgt
+      db.collection('consumed_drinks').onSnapshot(() => {
+        loadLeaderboard();
+        loadStats();
+      });
+    }
+
+    // ================================================
+    // AUTH
+    // ================================================
+    function switchAuthTab(tab) {
+      document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
+      document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none';
+      document.getElementById('tab-login').style.borderBottomColor = tab === 'login' ? '#ffbf00' : 'transparent';
+      document.getElementById('tab-login').style.color = tab === 'login' ? '#061b0e' : '#434843';
+      document.getElementById('tab-register').style.borderBottomColor = tab === 'register' ? '#ffbf00' : 'transparent';
+      document.getElementById('tab-register').style.color = tab === 'register' ? '#061b0e' : '#434843';
+    }
+
+    async function doLogin() {
+      const email = document.getElementById('login-email').value.trim();
+      const pw = document.getElementById('login-pw').value;
+      try { await auth.signInWithEmailAndPassword(email, pw); }
+      catch (e) { showToast('Fehler: ' + getAuthError(e.code)); }
+    }
+
+    async function doRegister() {
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const pw = document.getElementById('reg-pw').value;
+      if (!name || !email || !pw) { showToast('Bitte alle Felder ausfüllen'); return; }
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pw);
+        await cred.user.updateProfile({ displayName: name });
+        await db.collection('users').doc(cred.user.uid).set({ displayName: name, email, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        showToast('Willkommen bei der Osterbiersuche! 🍺');
+      } catch (e) { showToast('Fehler: ' + getAuthError(e.code)); }
+    }
+
+    async function doLogout() { await auth.signOut(); }
+
+    async function doPasswordReset() {
+      const email = document.getElementById('login-email').value.trim();
+      if (!email) { showToast('Bitte erst E-Mail eingeben'); return; }
+      try { await auth.sendPasswordResetEmail(email); showToast('Reset-E-Mail gesendet! 📧'); }
+      catch (e) { showToast('Fehler: ' + e.message); }
+    }
+
+    function getAuthError(code) {
+      return { 'auth/user-not-found': 'Nutzer nicht gefunden', 'auth/wrong-password': 'Falsches Passwort', 'auth/email-already-in-use': 'E-Mail bereits registriert', 'auth/weak-password': 'Passwort zu schwach', 'auth/invalid-email': 'Ungültige E-Mail', 'auth/invalid-credential': 'E-Mail oder Passwort falsch' }[code] || code;
+    }
+
+    // ================================================
+    // NAVIGATION
+    // ================================================
+    const PAGE_TITLES = { home: 'Osterbiersuche', leaderboard: 'Leaderboard', mydrinks: 'Getränke', hof: 'Hall of Fame', archive: 'Archiv', rules: 'Regeln', profile: 'Profil', admin: 'Admin' };
+
+    function showPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const page = document.getElementById('page-' + name);
+      if (page) page.classList.add('active');
+
+      // Nav active state
+      document.querySelectorAll('.nav-item').forEach(n => {
+        const isActive = n.dataset.page === name;
+        n.style.background = isActive ? '#f1c40f' : 'none';
+        n.style.color = isActive ? '#061b0e' : 'rgba(241,248,233,0.55)';
+        n.style.borderRadius = isActive ? '10px' : '0';
+      });
+
+      // Update app title
+      document.getElementById('app-ruler-name').style.display = name === 'home' ? 'block' : 'none';
+      // Could show page name, but keeping ruler name is nicer
+
+      window.scrollTo(0, 0);
+      if (name === 'leaderboard') loadLeaderboard();
+      if (name === 'mydrinks') { loadMyDrinks(); loadMyStats(); }
+      if (name === 'hof') loadHallOfFame();
+      if (name === 'archive') loadArchive();
+      if (name === 'profile') { loadProfile(); loadMyStats(); }
+      if (name === 'admin') loadAdminPage();
+    }
+
+    // ================================================
+    // HEADER AVATAR (Initials)
+    // ================================================
+    function updateHeaderAvatar() {
+      const emoji = currentUserDoc?.photoURL || null;
+      const name = currentUserDoc?.displayName || currentUser?.displayName || '?';
+      const display = emoji || name.charAt(0).toUpperCase();
+      document.getElementById('header-avatar').textContent = display;
+      document.getElementById('profile-avatar-display').textContent = display;
+    }
+
+    // ================================================
+    // PROFILE
+    // ================================================
+    function loadProfile() {
+      if (!currentUser) return;
+      const name = currentUserDoc?.displayName || currentUser.displayName || '–';
+      document.getElementById('profile-name-display').textContent = name;
+      document.getElementById('profile-email-display').textContent = currentUser.email;
+      document.getElementById('profile-name-input').value = name;
+      const emoji = currentUserDoc?.photoURL || null;
+      document.getElementById('profile-avatar-display').textContent = emoji || name.charAt(0).toUpperCase();
+    }
+
+    async function updateDisplayName() {
+      const name = document.getElementById('profile-name-input').value.trim();
+      if (!name) return;
+      await currentUser.updateProfile({ displayName: name });
+      await db.collection('users').doc(currentUser.uid).update({ displayName: name });
+      currentUserDoc.displayName = name;
+      document.getElementById('profile-name-display').textContent = name;
+      updateHeaderAvatar();
+      showToast('Name gespeichert ✓');
+    }
+
+    async function updateUserAvatar(emoji) {
+      if (!currentUser) return;
+      try {
+        // 1. In der Datenbank beim User speichern
+        await db.collection('users').doc(currentUser.uid).update({ photoURL: emoji });
+        currentUserDoc.photoURL = emoji;
+
+        // 2. Anzeige im Profil sofort ändern
+        document.getElementById('profile-avatar-display').textContent = emoji;
+
+        // 3. Anzeige oben im Header sofort ändern
+        const headerAv = document.getElementById('header-avatar');
+        if (headerAv) headerAv.textContent = emoji;
+
+        // 🔥 NEU: Cache für diesen User leeren und Leaderboard neu laden!
+        allUsersCache[currentUser.uid] = null;
+        loadLeaderboard();
+
+        showToast("Charakter gewählt: " + emoji);
+        if (typeof shootKonfetti === 'function') shootKonfetti();
+      } catch (error) {
+        console.error("Avatar Fehler:", error);
+        showToast("Konnte Avatar nicht speichern.");
+      }
+    }
+
+    async function loadMyStats() {
+      const snap = await db.collection('consumed_drinks')
+        .where('userId', '==', currentUser.uid)
+        .orderBy('consumedAt', 'asc').get();
+      let totalAlc = 0;
+      snap.docs.forEach(d => { totalAlc += d.data().pureAlcohol || 0; });
+      document.getElementById('stat-my-drinks').textContent = snap.size;
+      document.getElementById('stat-my-alc').textContent = totalAlc.toFixed(1) + 'g';
+
+      // Trinkgeschwindigkeit berechnen (nur Biere, keine Zonks)
+      const paceText = calcDrinkingPace(snap.docs);
+      const el1 = document.getElementById('drinks-pace-mydrinks');
+      const el2 = document.getElementById('drinks-pace-profile');
+      if (el1) el1.textContent = paceText;
+      if (el2) el2.textContent = paceText;
+    }
+
+    function calcDrinkingPace(docs) {
+      // Nur Biere (keine Zonks) mit Zeitstempel
+      const beerTimes = docs
+        .filter(d => !d.data().isZonk && d.data().consumedAt)
+        .map(d => d.data().consumedAt.toMillis())
+        .sort((a, b) => a - b);
+
+      if (beerTimes.length < 2) return 'Noch zu wenig Daten';
+
+      // Durchschnitt der Abstände zwischen je zwei Bieren
+      let totalGap = 0;
+      for (let i = 1; i < beerTimes.length; i++) {
+        totalGap += beerTimes[i] - beerTimes[i - 1];
+      }
+      const avgMs = totalGap / (beerTimes.length - 1);
+      const avgMin = Math.round(avgMs / 60000);
+
+      if (avgMin < 1) return 'Unter 1 Min pro Bier 🔥';
+      if (avgMin === 1) return '1 Min pro Bier';
+      return avgMin + ' Min pro Bier';
+    }
+
+    async function confirmParticipation() {
+      try {
+        await db.collection('users').doc(currentUser.uid).update({
+          isParticipating: true
+        });
+
+        showToast('Teilnahme bestätigt! 🍺');
+        loadStats(); // wichtig → Counter neu laden
+      } catch (e) {
+        showToast('Fehler beim Speichern');
+      }
+    }
+
+    // ================================================
+    // DRINKS (no photos)
+    // ================================================
+    function toggleAlcFields(val) {
+      document.getElementById('drink-alcohol-fields').style.display = val === 'yes' ? 'none' : 'block';
+    }
+
+    function openAddDrink() {
+      editingDrinkId = null;
+      document.getElementById('drink-name').value = '';
+      document.getElementById('drink-alc').value = '';
+      document.getElementById('drink-ml').value = '';
+      document.getElementById('drink-is-zonk').value = 'no';
+      toggleAlcFields('no');
+      document.querySelector('#modal-add-drink h3').textContent = '🍺 Getränk anlegen';
+      openModal('modal-add-drink');
+    }
+
+    async function saveDrink() {
+      const name = document.getElementById('drink-name').value.trim();
+      const isZonk = document.getElementById('drink-is-zonk').value === 'yes';
+      const alc = isZonk ? 0 : parseFloat(document.getElementById('drink-alc').value) || 0;
+      const ml = parseFloat(document.getElementById('drink-ml').value) || 0;
+      if (!name || ml <= 0) { showToast('Name und Menge sind Pflichtfelder'); return; }
+      if (!isZonk && (alc <= 0 || isNaN(alc))) { showToast('Bitte einen gültigen Alkoholgehalt eingeben'); return; }
+      if (!isZonk && alc > 7.5) { showToast('Maximaler Alkoholgehalt: 7,5%'); return; }
+      if (!isZonk && ml > 750) { showToast('Maximale Menge: 750ml'); return; }
+
+      showToast('Wird gespeichert…');
+
+      // Alle eigenen Getränke laden
+      const mySnap = await db.collection('drinks').where('ownerId', '==', currentUser.uid).get();
+      const myDrinks = mySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Limits checken (das aktuell bearbeitete Getränk wird ignoriert)
+      let beerCount = 0;
+      let zonkCount = 0;
+      myDrinks.forEach(d => {
+        if (d.id !== editingDrinkId) {
+          if (d.isZonk) zonkCount++; else beerCount++;
+        }
+      });
+
+      if (isZonk && zonkCount >= 2) { showToast('Limit: Maximal 2 Zonks erlaubt! 🫗'); return; }
+      if (!isZonk && beerCount >= 8) { showToast('Limit: Maximal 8 Biere erlaubt! 🍺'); return; }
+
+      const pureAlc = isZonk ? 0 : (alc / 100) * ml * 0.789;
+
+      if (editingDrinkId) {
+        // VORHANDENES GETRÄNK BEARBEITEN
+        await db.collection('drinks').doc(editingDrinkId).update({
+          name, isZonk, alc, ml, pureAlcohol: pureAlc
+        });
+        showToast('Getränk aktualisiert! ✓');
+      } else {
+        // NEUES GETRÄNK ANLEGEN
+        if (myDrinks.length >= 10) { showToast('Du hast bereits 10 Getränke angelegt!'); return; }
+
+        const userSnap = await db.collection('users').doc(currentUser.uid).get();
+        const assignedLetter = userSnap.data()?.letter || (currentUserDoc?.displayName || 'X').charAt(0).toUpperCase();
+
+        // Niedrigste freie Nummer (1 bis 10) finden, um Lücken zu füllen
+        const usedNumbers = myDrinks.map(d => parseInt(d.code.substring(1)));
+        let nextNum = 1;
+        for (let i = 1; i <= 10; i++) {
+          if (!usedNumbers.includes(i)) { nextNum = i; break; }
+        }
+        const code = assignedLetter.toUpperCase() + nextNum;
+
+        await db.collection('drinks').add({
+          ownerId: currentUser.uid, ownerName: currentUserDoc?.displayName || '?',
+          name, isZonk, alc, ml, pureAlcohol: pureAlc,
+          code, found: false, foundBy: null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        showToast('Gespeichert! Kennzahl: ' + code + ' 🍺');
+      }
+
+      // Modal aufräumen und schließen
+      closeModal('modal-add-drink');
+      document.getElementById('drink-name').value = '';
+      document.getElementById('drink-alc').value = '';
+      document.getElementById('drink-ml').value = '';
+      editingDrinkId = null;
+      loadMyDrinks();
+    }
+
+    async function loadMyDrinks() {
+      if (!currentUser) return;
+
+      // Hidden drinks
+      const mySnap = await db.collection('drinks').where('ownerId', '==', currentUser.uid).orderBy('createdAt', 'asc').get();
+      const hiddenEl = document.getElementById('hidden-drinks-list');
+      if (mySnap.empty) {
+        hiddenEl.innerHTML = '<div style="text-align:center;padding:24px 0;color:#737973;font-size:0.85rem;"><span style="font-size:2rem;display:block;margin-bottom:8px;">🥷</span>Noch keine Getränke angelegt</div>';
+      } else {
+        hiddenEl.innerHTML = mySnap.docs.map(d => renderDrinkCard(d.id, d.data())).join('');
+      }
+
+      // Consumed
+      const consumedSnap = await db.collection('consumed_drinks').where('userId', '==', currentUser.uid).orderBy('consumedAt', 'asc').get();
+      const count = consumedSnap.size;
+      const totalAlc = consumedSnap.docs.reduce((s, d) => s + (d.data().pureAlcohol || 0), 0);
+
+      // Update progress
+      document.getElementById('drinks-progress-text').textContent = count + ' von 10 Getränken';
+      const pct = Math.min(count / 10 * 100, 100);
+      const bar = document.getElementById('drinks-bar');
+      bar.style.width = pct + '%';
+      bar.style.background = count >= 8 ? 'linear-gradient(90deg, #ffbf00, #ff6b6b)' : '#ffbf00';
+
+      const consumedEl = document.getElementById('consumed-drinks-list');
+      if (consumedSnap.empty) {
+        consumedEl.innerHTML = '<div style="text-align:center;padding:24px 0;color:#737973;font-size:0.85rem;"><span style="font-size:2rem;display:block;margin-bottom:8px;">🔍</span>Noch nichts gefunden</div>';
+      } else {
+        let html = consumedSnap.docs.map(d => renderConsumedCard({ ...d.data(), docId: d.id })).join('');
+        html += `<div style="background:#f6f3ee;border-radius:12px;padding:14px 16px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#737973;">Gesamter reiner Alkohol</p>
+        <p style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;">${totalAlc.toFixed(2)}g</p>
+      </div>
+      <span class="material-symbols-outlined" style="color:#ffbf00;font-size:2rem;">water_drop</span>
+    </div>`;
+        consumedEl.innerHTML = html;
+      }
+    }
+
+    function renderDrinkCard(id, d) {
+      const emoji = d.isZonk ? '<img src="https://raw.githubusercontent.com/Jewels26/osterbiersuche/main/zonk.png" style="width:32px;height:32px;object-fit:contain;">' : '🍺';
+      const meta = d.isZonk ? 'Zonk · alkoholfrei' : `${d.alc}% Vol. · ${d.ml}ml · ${(d.pureAlcohol || 0).toFixed(1)}g Alk.`;
+      const foundBadge = d.found ? `<span style="background:#ebe8e3;color:#737973;border-radius:100px;padding:2px 8px;font-size:0.68rem;font-weight:600;">Gefunden</span>` : '';
+      const actionButtons = !d.found ? `
+    <div style="display:flex;gap:6px;margin-top:10px;">
+      <button onclick="editDrink('${id}')" style="background:#e5e2dd;border:none;padding:5px 12px;border-radius:6px;font-size:0.75rem;cursor:pointer;color:#434843;font-weight:600;">Bearbeiten</button>
+      <button onclick="deleteDrink('${id}')" style="background:#ffdad6;border:none;padding:5px 12px;border-radius:6px;font-size:0.75rem;cursor:pointer;color:#ba1a1a;font-weight:600;">Löschen</button>
+    </div>
+  ` : '';
+      return `<div style="background:#fff;border-radius:12px;border:1px solid #e5e2dd;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(6,27,14,0.04);">
+    <div style="width:46px;height:46px;border-radius:10px;background:#f0ede8;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">${emoji}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+        <span style="background:${d.isZonk ? '#e5e2dd' : '#1B3022'};color:${d.isZonk ? '#737973' : '#f1c40f'};border-radius:6px;padding:3px 8px;font-weight:700;font-size:0.78rem;font-family:'Newsreader',serif;letter-spacing:1px;">${d.code}</span>
+        <span style="font-weight:600;font-size:0.88rem;color:#1c1c19;">${d.name}</span>
+        ${foundBadge}
+      </div>
+      <div style="font-size:0.72rem;color:#737973;">${meta}</div>
+      ${actionButtons}
+    </div>
+  </div>`;
+    }
+
+    function renderConsumedCard(d) {
+      const emoji = d.isZonk ? '<img src="https://raw.githubusercontent.com/Jewels26/osterbiersuche/main/zonk.png" style="width:32px;height:32px;object-fit:contain;">' : '🍺';
+      const meta = d.isZonk ? 'Zonk · alkoholfrei' : `${(d.pureAlcohol || 0).toFixed(2)}g reiner Alkohol`;
+      return `<div style="background:#fff;border-radius:12px;border:1px solid #e5e2dd;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(6,27,14,0.04);">
+    <div style="width:46px;height:46px;border-radius:10px;background:#f0ede8;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">${emoji}</div>
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+        <span style="background:${d.isZonk ? '#e5e2dd' : '#1B3022'};color:${d.isZonk ? '#737973' : '#f1c40f'};border-radius:6px;padding:3px 8px;font-weight:700;font-size:0.78rem;font-family:'Newsreader',serif;">${d.code}</span>
+        <span style="font-weight:600;font-size:0.88rem;color:#1c1c19;">${d.drinkName}</span>
+      </div>
+      <div style="font-size:0.72rem;color:#737973;">${meta} · von ${d.ownerName}</div>
+    </div>
+    <button onclick="deleteConsumedDrink('${d.docId}')" style="background:#ffdad6;color:#93000a;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;flex-shrink:0;">✕</button>
+  </div>`;
+    }
+
+    async function deleteConsumedDrink(docId) {
+      if (!confirm('Dieses Getränk aus der Liste löschen?')) return;
+      try {
+        const consumedDoc = await db.collection('consumed_drinks').doc(docId).get();
+        const drinkId = consumedDoc.data()?.drinkId;
+        await db.collection('consumed_drinks').doc(docId).delete();
+        if (drinkId) {
+          await db.collection('drinks').doc(drinkId).update({ found: false, foundBy: null });
+        }
+        showToast('Getränk gelöscht ✓');
+        loadMyDrinks();
+        loadLeaderboard();
+        loadStats();
+      } catch (e) { showToast('Fehler: ' + e.message); }
+    }
+
+    async function deleteDrink(id) {
+      if (!confirm('Willst du dieses Getränk wirklich löschen?')) return;
+      try {
+        await db.collection('drinks').doc(id).delete();
+        showToast('Getränk gelöscht 🗑️');
+        loadMyDrinks();
+      } catch (e) {
+        showToast('Fehler beim Löschen!');
+      }
+    }
+
+    async function editDrink(id) {
+      const snap = await db.collection('drinks').doc(id).get();
+      if (!snap.exists) return;
+      const d = snap.data();
+
+      editingDrinkId = id;
+      document.getElementById('drink-name').value = d.name;
+      document.getElementById('drink-is-zonk').value = d.isZonk ? 'yes' : 'no';
+      toggleAlcFields(d.isZonk ? 'yes' : 'no');
+      document.getElementById('drink-alc').value = d.alc || '';
+      document.getElementById('drink-ml').value = d.ml || '';
+
+      document.querySelector('#modal-add-drink h3').textContent = '✏️ Getränk bearbeiten';
+      openModal('modal-add-drink');
+    }
+
+    // ================================================
+    // TRACK FOUND DRINK
+    // ================================================
+    let currentEventStatus = 'upcoming';
+
+    function applyEventStatus(status, nextTitle, gender) {
+      currentEventStatus = status;
+      const banner = document.getElementById('event-banner');
+      const countdownEl = document.getElementById('countdown-card');
+
+      if (status === 'upcoming') {
+        if (banner) banner.style.display = 'none';
+        if (countdownEl) countdownEl.style.display = 'block';
+      } else if (status === 'active') {
+        if (countdownEl) countdownEl.style.display = 'none';
+        if (banner) {
+          banner.style.display = 'block';
+          banner.innerHTML = `
+            <div style="background:linear-gradient(135deg,#1B3022,#2d5a40);border-radius:16px;padding:16px 20px;text-align:center;box-shadow:0 4px 16px rgba(6,27,14,0.2);animation:pulse 2s ease-in-out infinite;">
+              <p style="font-size:1.5rem;margin-bottom:4px;">🟢</p>
+              <p style="font-family:'Newsreader',serif;font-size:1.4rem;font-weight:800;color:#f1c40f;">Die Suche läuft!</p>
+              <p style="font-size:0.8rem;color:rgba(255,255,255,0.7);margin-top:4px;">Viel Erfolg bei der Osterbiersuche 🍺</p>
+            </div>`;
+        }
+      } else if (status === 'ended') {
+        if (countdownEl) countdownEl.style.display = 'none';
+        const imgUrl = gender === 'female'
+          ? 'https://raw.githubusercontent.com/Jewels26/osterbiersuche/main/gewinner_weiblich.png'
+          : 'https://raw.githubusercontent.com/Jewels26/osterbiersuche/main/gewinner_maennlich.png';
+        if (banner) {
+          banner.style.display = 'block';
+          banner.innerHTML = `
+            <div style="background:linear-gradient(135deg,#1B3022,#0f2418);border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(6,27,14,0.25);">
+              <img src="${imgUrl}" onclick="openImageFullscreen('${imgUrl}')" style="width:100%;height:280px;object-fit:cover;object-position:top;display:block;cursor:pointer;" onerror="this.style.display='none'" />
+              <div style="padding:20px;text-align:center;">
+                <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.2em;color:rgba(241,196,15,0.7);margin-bottom:10px;">🏆 Die Osterbiersuche ist beendet!</p>
+                <p style="font-size:0.85rem;color:rgba(255,255,255,0.7);margin-bottom:4px;">Unser neuer Herrscher ist</p>
+                <p style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#f1c40f;line-height:1.2;margin-bottom:8px;" id="winner-name-banner">Gewinner</p>
+                <p style="font-family:'Newsreader',serif;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,0.9);font-style:italic;">Der ${nextTitle}</p>
+                <button onclick="showPage('leaderboard')" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);border-radius:8px;padding:8px 16px;font-size:0.78rem;cursor:pointer;margin-top:12px;font-family:'Work Sans',sans-serif;">Zum Leaderboard für alle Ergebnisse →</button>
+              </div>
+            </div>`;
+          // Gewinner aus Leaderboard laden
+          db.collection('consumed_drinks').get().then(snap => {
+            const scores = {};
+            snap.docs.forEach(d => {
+              const u = d.data();
+              if (!scores[u.userId]) scores[u.userId] = { name: u.userName, alc: 0 };
+              scores[u.userId].alc += u.pureAlcohol || 0;
+            });
+            const sorted = Object.values(scores).sort((a, b) => b.alc - a.alc);
+            if (sorted.length) {
+              const winnerEl = document.getElementById('winner-name-banner');
+              if (winnerEl) winnerEl.textContent = sorted[0].name;
+            }
+          });
+        }
+      }
+    }
+
+    async function trackFoundDrink() {
+      const code = document.getElementById('found-code-input').value.trim().toUpperCase();
+      if (!code) { showToast('Bitte eine Kennzahl eingeben'); return; }
+
+      if (currentEventStatus !== 'active') {
+        showToast(currentEventStatus === 'upcoming' ? 'Die Suche hat noch nicht begonnen! ⏳' : 'Die Suche ist bereits beendet! 🏁');
+        return;
+      }
+
+      const myUserDoc = await db.collection('users').doc(currentUser.uid).get();
+      if (!myUserDoc.data()?.isParticipating) {
+        showToast('Bitte zuerst Teilnahme im Profil bestätigen! 🍺'); return;
+      }
+
+      const consumed = await db.collection('consumed_drinks').where('userId', '==', currentUser.uid).get();
+      if (consumed.size >= 10) { showToast('Limit erreicht! Du hast bereits 10 Getränke getrunken 🚫'); return; }
+
+      const snap = await db.collection('drinks').where('code', '==', code).get();
+      if (snap.empty) { showToast('Kennzahl "' + code + '" nicht gefunden'); return; }
+
+      const drinkDoc = snap.docs[0];
+      const drink = drinkDoc.data();
+      if (drink.ownerId === currentUser.uid) { showToast('Das ist dein eigenes Getränk! 😄'); return; }
+      if (drink.found) { showToast('Dieses Getränk wurde schon gefunden!'); return; }
+
+      pendingFoundDrink = { id: drinkDoc.id, data: drink };
+
+      // Build result card in Stitch style
+      const pureAlc = drink.isZonk ? 0 : (drink.pureAlcohol || 0);
+      document.getElementById('confirm-drink-info').innerHTML = `
+    <div style="padding:20px;">
+      <p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.12em;color:${drink.isZonk ? '#737973' : '#795900'};font-weight:700;margin-bottom:4px;">
+        Position ${drink.code} · von ${drink.ownerName}
+      </p>
+      <h2 style="font-family:'Newsreader',serif;font-size:1.8rem;font-weight:800;color:#061b0e;margin-bottom:8px;">${drink.name}</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:0;">
+        ${drink.isZonk
+          ? `<span style="background:#f0ede8;color:#737973;border-radius:100px;padding:5px 12px;font-size:0.75rem;font-weight:600;display:flex;align-items:center;gap:6px;"><img src="https://raw.githubusercontent.com/Jewels26/osterbiersuche/main/zonk.png" style="width:18px;height:18px;"> Zonk – alkoholfrei</span>`
+          : `<span style="background:#f0ede8;color:#434843;border-radius:100px;padding:5px 12px;font-size:0.75rem;font-weight:600;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:0.85rem;">water_drop</span>${drink.alc}% Vol.</span>
+             <span style="background:#f0ede8;color:#434843;border-radius:100px;padding:5px 12px;font-size:0.75rem;font-weight:600;">${drink.ml}ml</span>
+             <span style="background:#1B3022;color:#f1c40f;border-radius:100px;padding:5px 12px;font-size:0.75rem;font-weight:700;">${pureAlc.toFixed(2)}g Alkohol</span>`
+        }
+      </div>
+    </div>`;
+      openModal('modal-confirm-drink');
+    }
+
+    async function confirmDrinkConsumption() {
+      if (!pendingFoundDrink) return;
+      const { id, data } = pendingFoundDrink;
+
+      await db.collection('consumed_drinks').add({
+        userId: currentUser.uid,
+        userName: currentUserDoc?.displayName || '?',
+        drinkId: id, drinkName: data.name, code: data.code,
+        ownerId: data.ownerId, ownerName: data.ownerName,
+        isZonk: data.isZonk, alc: data.alc, ml: data.ml,
+        pureAlcohol: data.pureAlcohol || 0,
+        consumedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      await db.collection('drinks').doc(id).update({ found: true, foundBy: currentUser.uid });
+
+      closeModal('modal-confirm-drink');
+      document.getElementById('found-code-input').value = '';
+      pendingFoundDrink = null;
+      if (data.isZonk) {
+        showToast('Erwischt! Das war ein Zonk 🐭');
+        shootZonk();
+      } else {
+        showToast('Prost! 🍺 Eingetragen!');
+        shootKonfetti();
+      }
+      loadMyDrinks();
+      loadLeaderboard();
+      loadStats();
+    }
+
+    // ================================================
+    // LEADERBOARD
+    // ================================================
+    async function loadLeaderboard() {
+      const snap = await db.collection('consumed_drinks').get();
+      const scores = {};
+      snap.docs.forEach(d => {
+        const u = d.data();
+        if (!scores[u.userId]) scores[u.userId] = { name: u.userName, alc: 0, count: 0, uid: u.userId };
+        scores[u.userId].alc += u.pureAlcohol || 0;
+        scores[u.userId].count++;
+      });
+
+      for (const uid of Object.keys(scores)) {
+        if (!allUsersCache[uid]) {
+          const uSnap = await db.collection('users').doc(uid).get();
+          allUsersCache[uid] = uSnap.exists ? uSnap.data() : {};
+        }
+        scores[uid].name = allUsersCache[uid].displayName || scores[uid].name;
+        // 🔥 NEU: Avatar aus dem Cache holen
+        scores[uid].avatar = allUsersCache[uid].photoURL || null;
+      }
+
+      const sorted = Object.values(scores).sort((a, b) => b.alc - a.alc);
+      const MEDALS = ['🥇', '🥈', '🥉'];
+
+      // Full leaderboard
+      const el = document.getElementById('leaderboard-list');
+      if (!sorted.length) {
+        if (el) el.innerHTML = '<div style="text-align:center;padding:40px 0;color:#737973;font-size:0.85rem;"><span style="font-size:2.5rem;display:block;margin-bottom:10px;">🏆</span>Noch keine Einträge</div>';
+      } else {
+        if (el) el.innerHTML = sorted.map((e, i) => {
+          const isMe = e.uid === currentUser.uid;
+
+          // 🔥 NEU: Prüfen ob Avatar oder Initiale
+          const avatarHtml = e.avatar
+            ? `<span style="font-size: 1.6rem;">${e.avatar}</span>`
+            : `${(e.name || '?').charAt(0).toUpperCase()}`;
+
+          const avatarStyle = e.avatar
+            ? `background:#f4f1ec; border:2px solid #e5e2dd; display:flex; align-items:center; justify-content:center;`
+            : `background:linear-gradient(135deg,#1B3022,#4d6453);color:#f1c40f;font-family:'Newsreader',serif;font-weight:800; display:flex; align-items:center; justify-content:center;`;
+
+          return `<div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #e5e2dd;${i === 0 ? 'padding-top:0;' : ''}">
+        <span style="font-size:${i < 3 ? '1.4rem' : '1rem'};width:28px;text-align:center;color:${i < 3 ? 'inherit' : '#737973'};">${MEDALS[i] || '#' + (i + 1)}</span>
+        <div style="width:40px;height:40px;border-radius:50%;font-size:1.1rem;flex-shrink:0;${avatarStyle}">${avatarHtml}</div>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:0.92rem;color:#1c1c19;">${e.name} ${isMe ? '<span style="background:#f0ede8;color:#737973;border-radius:100px;padding:1px 8px;font-size:0.68rem;font-weight:600;">du</span>' : ''}</div>
+          <div style="font-size:0.72rem;color:#737973;">${e.count}/10 Getränke</div>
+        </div>
+        <div style="font-family:'Newsreader',serif;font-size:1.2rem;font-weight:800;color:#061b0e;">${e.alc.toFixed(1)}g</div>
+      </div>`;
+        }).join('');
+      }
+
+      // Top 3 on home
+      const t3el = document.getElementById('home-top3');
+      if (!sorted.length) {
+        if (t3el) t3el.innerHTML = '<div style="text-align:center;padding:16px 0;color:#737973;font-size:0.85rem;">Noch keine Daten</div>';
+      } else {
+        if (t3el) t3el.innerHTML = sorted.slice(0, 3).map((e, i) => {
+
+          // 🔥 NEU: Auch für Top3 Avatar oder Initiale prüfen
+          const avatarHtml = e.avatar
+            ? `<span style="font-size: 1.3rem;">${e.avatar}</span>`
+            : `${(e.name || '?').charAt(0).toUpperCase()}`;
+
+          const avatarStyle = e.avatar
+            ? `background:#f4f1ec; border:1px solid #e5e2dd; display:flex; align-items:center; justify-content:center;`
+            : `background:linear-gradient(135deg,#1B3022,#4d6453);color:#f1c40f;font-family:'Newsreader',serif;font-weight:800; display:flex; align-items:center; justify-content:center;`;
+
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:${i < 2 ? '1px solid #e5e2dd' : 'none'};">
+        <span style="font-size:1.2rem;width:24px;text-align:center;">${MEDALS[i]}</span>
+        <div style="width:34px;height:34px;border-radius:50%;font-size:0.95rem;flex-shrink:0;${avatarStyle}">${avatarHtml}</div>
+        <div style="flex:1;font-weight:600;font-size:0.85rem;">${e.name}</div>
+        <div style="font-family:'Newsreader',serif;font-size:1rem;font-weight:800;color:#061b0e;">${e.alc.toFixed(1)}g</div>
+      </div>`;
+        }).join('');
+      }
+    }
+
+    async function loadStats() {
+      try {
+        const usersSnap = await db.collection('users').where('isParticipating', '==', true).get();
+        document.getElementById('stat-participants').textContent = usersSnap.size;
+
+        const allDrinksSnap = await db.collection('drinks').get();
+        const allConsumedSnap = await db.collection('consumed_drinks').get();
+
+        const totalBeers = allDrinksSnap.docs.filter(d => !d.data().isZonk).length;
+        const totalZonks = allDrinksSnap.docs.filter(d => d.data().isZonk).length;
+        const beersConsumed = allConsumedSnap.docs.filter(d => !d.data().isZonk).length;
+        const zonksConsumed = allConsumedSnap.docs.filter(d => d.data().isZonk).length;
+        const beersLeft = allDrinksSnap.docs.filter(d => !d.data().isZonk && !d.data().found).length;
+
+        document.getElementById('stat-drinks').textContent = beersLeft;
+
+        const beerEl = document.getElementById('stat-beers-drunk');
+        const beerTotalEl = document.getElementById('stat-beers-total');
+        const zonkEl = document.getElementById('stat-zonks-left');
+        if (beerEl) beerEl.textContent = beersConsumed;
+        if (beerTotalEl) beerTotalEl.textContent = 'von ' + totalBeers + ' versteckt';
+        if (zonkEl) zonkEl.textContent = (totalZonks - zonksConsumed);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ================================================
+    // HALL OF FAME
+    // ================================================
+    async function loadHallOfFame() {
+      const snap = await db.collection('hall_of_fame').orderBy('year', 'desc').get();
+      const el = document.getElementById('hof-list');
+      if (snap.empty) {
+        el.innerHTML = '<div style="text-align:center;padding:40px 0;color:#737973;font-size:0.85rem;"><span style="font-size:2.5rem;display:block;margin-bottom:10px;">👑</span>Noch keine Einträge</div>';
+        return;
+      }
+      const isAdmin = ADMIN_EMAILS.includes(currentUser.email);
+      el.innerHTML = snap.docs.map((d) => {
+        const e = d.data();
+        const docId = d.id;
+        const initial = (e.name || '?').charAt(0).toUpperCase();
+        const hasAlc = e.alcohol !== null && e.alcohol !== undefined && !isNaN(e.alcohol);
+
+        let alcDisplay, alcSub;
+        if (!hasAlc) {
+          alcDisplay = 'N/A';
+          alcSub = 'vor der Digitalisierung';
+        } else {
+          const mass = (e.alcohol / 40).toFixed(1);
+          alcDisplay = e.alcohol.toFixed(1) + 'g';
+          alcSub = '≈ ' + mass + ' Maß 🍺';
+        }
+
+        const isVideo = e.imageUrl && e.imageUrl.endsWith('.mp4');
+        const avatar = e.imageUrl
+          ? (isVideo
+            ? `<video src="${e.imageUrl}" 
+            onclick="openVideoFullscreen('${e.imageUrl}')" 
+            style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:2px solid rgba(241,196,15,0.5);cursor:pointer;" 
+            autoplay loop muted playsinline></video>`
+            : `<img src="${e.imageUrl}" 
+            onclick="openImageFullscreen('${e.imageUrl}')" 
+            style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:2px solid rgba(241,196,15,0.5);cursor:pointer;" />`)
+          : `<div style="width:64px;height:64px;border-radius:10px;background:rgba(255,191,0,0.15);color:#f1c40f;font-family:'Newsreader',serif;font-size:1.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(241,196,15,0.3);">${initial}</div>`;
+
+        const adminBtns = isAdmin ? `
+          <div style="display:flex;gap:8px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;">
+            <button onclick="editHofEntry('${docId}')" style="flex:1;background:rgba(255,255,255,0.1);color:#f1c40f;border:1px solid rgba(241,196,15,0.3);border-radius:8px;padding:7px;cursor:pointer;font-size:0.78rem;font-weight:600;font-family:'Work Sans',sans-serif;">✏️ Bearbeiten</button>
+            <button onclick="deleteHofEntry('${docId}')" style="flex:1;background:rgba(186,26,26,0.2);color:#ffb4ab;border:1px solid rgba(186,26,26,0.3);border-radius:8px;padding:7px;cursor:pointer;font-size:0.78rem;font-weight:600;font-family:'Work Sans',sans-serif;">🗑️ Löschen</button>
+          </div>` : '';
+
+        return `<div style="background:#1B3022;border-radius:16px;border:1px solid rgba(241,196,15,0.2);padding:20px;margin-bottom:10px;box-shadow:0 8px 24px rgba(6,27,14,0.15);">
+          <div style="display:flex;align-items:center;gap:14px;">
+            ${avatar}
+            <div style="flex:1;min-width:0;">
+              <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:rgba(241,196,15,0.6);margin-bottom:4px;">${e.year}</p>
+              <h3 style="font-family:'Newsreader',serif;font-size:1.4rem;font-weight:800;color:#f1c40f;margin-bottom:2px;line-height:1.2;">${e.title}</h3>
+              <p style="font-size:0.82rem;color:rgba(255,255,255,0.7);margin-top:2px;">${e.name}</p>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <p style="font-family:'Newsreader',serif;font-size:1.3rem;font-weight:800;color:#f1c40f;">${alcDisplay}</p>
+              <p style="font-size:0.65rem;color:rgba(255,255,255,0.45);margin-top:2px;">${alcSub}</p>
+            </div>
+          </div>
+          ${adminBtns}
+        </div>`;
+      }).join('');
+    }
+    // ================================================
+    // RULES
+    // ================================================
+    async function loadRules() {
+      const snap = await db.collection('settings').doc('app').get();
+      const rules = (snap.exists && snap.data().rules) ? snap.data().rules : DEFAULT_RULES;
+      document.getElementById('rules-list').innerHTML = rules.map((r, i) => `
+    <div style="display:flex;gap:12px;padding:12px 0;border-bottom:${i < rules.length - 1 ? '1px solid #e5e2dd' : 'none'};">
+      <div style="background:#1B3022;color:#f1c40f;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Newsreader',serif;font-weight:700;flex-shrink:0;font-size:0.85rem;">${i + 1}</div>
+      <div style="font-size:0.88rem;line-height:1.55;color:#434843;padding-top:2px;">${r}</div>
+    </div>`).join('');
+    }
+
+    // ================================================
+    // WEATHER
+    // ================================================
+    async function loadWeather() {
+      try {
+        const lat = 48.1351, lon = 11.5820; // München – in SETUP_ANLEITUNG erklären wie man ändert
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Europe%2FBerlin&start_date=2026-04-03&end_date=2026-04-03`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const d = data.daily;
+        const tmax = Math.round(d.temperature_2m_max[0]);
+        const tmin = Math.round(d.temperature_2m_min[0]);
+        const prec = d.precipitation_sum[0];
+        const code = d.weathercode[0];
+        const icon = wmoIcon(code);
+        const desc = wmoDesc(code);
+
+        document.getElementById('weather-container').innerHTML = `
+      <div style="background:linear-gradient(135deg,#1B3022,#2d5a40);border-radius:16px;padding:24px 20px;color:#fff;display:flex;align-items:center;gap:16px;box-shadow:0 8px 24px rgba(6,27,14,0.15);">
+        <div style="font-size:3.5rem;line-height:1;">${icon}</div>
+        <div style="flex:1;">
+          <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:rgba(241,196,15,0.8);margin-bottom:4px;">Karfreitag · 3. April 2026</p>
+          <p style="font-family:'Newsreader',serif;font-size:2.4rem;font-weight:800;color:#fff;line-height:1;">${tmax}°C</p>
+          <p style="font-size:0.82rem;color:rgba(255,255,255,0.75);margin-top:2px;">${desc}</p>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.6);">Min ${tmin}°C</div>
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.6);margin-top:2px;">Regen ${prec}mm</div>
+        </div>
+      </div>`;
+      } catch (e) {
+        document.getElementById('weather-container').innerHTML = `
+      <div style="background:#f6f3ee;border-radius:14px;padding:16px;text-align:center;color:#737973;font-size:0.85rem;border:1px solid #e5e2dd;">Wetter konnte nicht geladen werden</div>`;
+      }
+    }
+
+    function wmoIcon(c) {
+      if (c === 0) return '☀️'; if (c <= 2) return '⛅'; if (c <= 3) return '☁️'; if (c <= 49) return '🌫️'; if (c <= 59) return '🌦️'; if (c <= 69) return '🌧️'; if (c <= 79) return '❄️'; if (c <= 82) return '🌨️'; return '⛈️';
+    }
+    function wmoDesc(c) {
+      if (c === 0) return 'Klarer Himmel'; if (c <= 2) return 'Teilweise bewölkt'; if (c <= 3) return 'Bedeckt'; if (c <= 49) return 'Neblig'; if (c <= 59) return 'Nieselregen'; if (c <= 69) return 'Regen'; if (c <= 79) return 'Schnee'; if (c <= 82) return 'Regenschauer'; return 'Gewitter';
+    }
+
+    // ================================================
+    // COUNTDOWN
+    // ================================================
+    function startCountdown() {
+      function update() {
+        const diff = new Date('2026-04-03T10:03:00') - new Date();
+        if (diff <= 0) {
+          document.getElementById('cd-days').textContent = '🍺'; document.getElementById('cd-hours').textContent = 'Los!'; document.getElementById('cd-mins').textContent = '';
+          return;
+        }
+        document.getElementById('cd-days').textContent = Math.floor(diff / 86400000);
+        document.getElementById('cd-hours').textContent = Math.floor((diff % 86400000) / 3600000);
+        document.getElementById('cd-mins').textContent = Math.floor((diff % 3600000) / 60000);
+      }
+      update(); setInterval(update, 60000);
+    }
+
+    // ================================================
+    // ADMIN
+    // ================================================
+    async function loadAdminPage() {
+      if (!ADMIN_EMAILS.includes(currentUser.email)) { showToast('Kein Admin-Zugriff'); showPage('home'); return; }
+      const snap = await db.collection('settings').doc('app').get();
+      const s = snap.data() || {};
+      document.getElementById('admin-ruler-name').value = s.rulerName || '';
+      document.getElementById('admin-ruler-image').value = s.rulerImageUrl || '';
+      document.getElementById('admin-next-title').value = s.nextTitle || '';
+      document.getElementById('admin-theme').value = s.theme || '';
+      document.getElementById('admin-event-status').value = s.eventStatus || 'upcoming';
+      document.getElementById('admin-winner-gender').value = s.winnerGender || 'male';
+      const rules = s.rules || DEFAULT_RULES;
+      document.getElementById('admin-rules-list').innerHTML = rules.map((r, i) => `
+    <div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #e5e2dd;">
+      <span style="flex:1;font-size:0.82rem;color:#434843;">${i + 1}. ${r}</span>
+      <button onclick="deleteRule(${i})" style="background:#ffdad6;color:#93000a;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.75rem;font-weight:700;">✕</button>
+    </div>`).join('');
+      loadLetterAssignments();
+    }
+
+    async function saveTheme() {
+      const ruler = document.getElementById('admin-ruler-name').value.trim();
+      const rulerImageUrl = document.getElementById('admin-ruler-image').value.trim();
+      const theme = document.getElementById('admin-theme').value;
+      const nextTitle = document.getElementById('admin-next-title').value.trim();
+      await db.collection('settings').doc('app').update({ rulerName: ruler, rulerImageUrl, theme, nextTitle });
+      const ntEl = document.getElementById('leaderboard-next-title');
+      if (ntEl && nextTitle) ntEl.textContent = nextTitle;
+      document.body.classList.remove('theme-spring', 'theme-glitter');
+      document.querySelectorAll('.glitter-particle, .butterfly').forEach(p => p.remove());
+      if (theme) document.body.classList.add(theme);
+      if (theme === 'theme-glitter') startGlitterParticles();
+      document.getElementById('home-ruler-badge').textContent = ruler;
+      document.getElementById('app-ruler-name').textContent = ruler;
+      const img = document.getElementById('ruler-img');
+      const vid = document.getElementById('ruler-video');
+      const ph = document.getElementById('ruler-img-placeholder');
+      if (rulerImageUrl) {
+        ph.style.display = 'none';
+        if (rulerImageUrl.endsWith('.mp4')) {
+          img.style.display = 'none';
+          vid.src = rulerImageUrl;
+          vid.style.display = 'block';
+          vid.play();
+        } else {
+          vid.style.display = 'none';
+          img.src = rulerImageUrl;
+          img.style.display = 'block';
+        }
+      } else {
+        img.style.display = 'none';
+        vid.style.display = 'none';
+        ph.style.display = 'block';
+      }
+      showToast('Theme gespeichert ✓');
+    }
+
+    async function saveEventStatus() {
+      const status = document.getElementById('admin-event-status').value;
+      const gender = document.getElementById('admin-winner-gender').value;
+      await db.collection('settings').doc('app').update({ eventStatus: status, winnerGender: gender });
+      const snap = await db.collection('settings').doc('app').get();
+      const s = snap.data();
+      applyEventStatus(status, s.nextTitle || '', gender);
+      showToast('Event-Status gespeichert ✓');
+    }
+
+    async function deleteHofEntry(docId) {
+      if (!confirm('Diesen Hall of Fame Eintrag wirklich löschen?')) return;
+      try {
+        await db.collection('hall_of_fame').doc(docId).delete();
+        showToast('Eintrag gelöscht ✓');
+        loadHallOfFame();
+      } catch (e) { showToast('Fehler: ' + e.message); }
+    }
+
+    async function editHofEntry(docId) {
+      const snap = await db.collection('hall_of_fame').doc(docId).get();
+      if (!snap.exists) return;
+      const e = snap.data();
+      // Admin-Felder befüllen
+      document.getElementById('admin-hof-year').value = e.year || '';
+      document.getElementById('admin-hof-name').value = e.name || '';
+      document.getElementById('admin-hof-title').value = e.title || '';
+      document.getElementById('admin-hof-image').value = e.imageUrl || '';
+      const isNA = e.alcohol === null || e.alcohol === undefined || isNaN(e.alcohol);
+      document.getElementById('admin-hof-na').checked = isNA;
+      document.getElementById('admin-hof-alcohol').disabled = isNA;
+      document.getElementById('admin-hof-alcohol').value = isNA ? '' : e.alcohol;
+      // Speichern-Button auf Update umschalten
+      document.getElementById('admin-hof-save-btn').textContent = '💾 Eintrag aktualisieren';
+      document.getElementById('admin-hof-save-btn').onclick = () => updateHofEntry(docId);
+      // Zum Admin-Bereich scrollen
+      showPage('admin');
+      setTimeout(() => {
+        document.getElementById('admin-hof-year').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 200);
+      showToast('Eintrag zum Bearbeiten geladen ✓');
+    }
+
+    async function updateHofEntry(docId) {
+      const year = parseInt(document.getElementById('admin-hof-year').value);
+      const name = document.getElementById('admin-hof-name').value.trim();
+      const title = document.getElementById('admin-hof-title').value.trim();
+      const isNA = document.getElementById('admin-hof-na').checked;
+      const alcohol = isNA ? null : parseFloat(document.getElementById('admin-hof-alcohol').value);
+      const imageUrl = document.getElementById('admin-hof-image').value.trim();
+      if (!year || !name || !title) { showToast('Bitte Jahr, Name und Titel ausfüllen'); return; }
+      await db.collection('hall_of_fame').doc(docId).update({ year, name, title, alcohol, imageUrl });
+      ['admin-hof-year', 'admin-hof-name', 'admin-hof-title', 'admin-hof-alcohol', 'admin-hof-image'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('admin-hof-na').checked = false;
+      document.getElementById('admin-hof-alcohol').disabled = false;
+      // Button zurücksetzen
+      document.getElementById('admin-hof-save-btn').textContent = 'Eintrag speichern 👑';
+      document.getElementById('admin-hof-save-btn').onclick = addHofEntry;
+      showToast('Eintrag aktualisiert ✓');
+      loadHallOfFame();
+    }
+
+    async function addHofEntry() {
+      const year = parseInt(document.getElementById('admin-hof-year').value);
+      const name = document.getElementById('admin-hof-name').value.trim();
+      const title = document.getElementById('admin-hof-title').value.trim();
+      const isNA = document.getElementById('admin-hof-na').checked;
+      const alcohol = isNA ? null : parseFloat(document.getElementById('admin-hof-alcohol').value);
+      const imageUrl = document.getElementById('admin-hof-image').value.trim();
+      if (!year || !name || !title) { showToast('Bitte Jahr, Name und Titel ausfüllen'); return; }
+      if (!isNA && isNaN(alcohol)) { showToast('Bitte Alkohol eintragen oder N/A wählen'); return; }
+      await db.collection('hall_of_fame').add({ year, name, title, alcohol, imageUrl });
+      ['admin-hof-year', 'admin-hof-name', 'admin-hof-title', 'admin-hof-alcohol', 'admin-hof-image'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('admin-hof-na').checked = false;
+      document.getElementById('admin-hof-alcohol').disabled = false;
+      showToast('Hall of Fame Eintrag gespeichert 👑');
+      loadHallOfFame();
+    }
+
+    async function addRule() {
+      const text = document.getElementById('admin-new-rule').value.trim();
+      if (!text) return;
+      const snap = await db.collection('settings').doc('app').get();
+      const rules = snap.data()?.rules || DEFAULT_RULES;
+      rules.push(text);
+      await db.collection('settings').doc('app').update({ rules });
+      document.getElementById('admin-new-rule').value = '';
+      showToast('Regel hinzugefügt ✓');
+      loadAdminPage(); loadRules();
+    }
+
+    async function deleteRule(idx) {
+      const snap = await db.collection('settings').doc('app').get();
+      const rules = snap.data()?.rules || DEFAULT_RULES;
+      rules.splice(idx, 1);
+      await db.collection('settings').doc('app').update({ rules });
+      showToast('Regel gelöscht');
+      loadAdminPage(); loadRules();
+    }
+
+    async function assignLetter() {
+      const email = document.getElementById('admin-assign-email').value.trim().toLowerCase();
+      const letter = document.getElementById('admin-assign-letter').value.trim().toUpperCase();
+      if (!email || !letter) { showToast('Bitte E-Mail und Buchstaben eingeben'); return; }
+
+      // Alle Nutzer laden und manuell nach E-Mail filtern (umgeht Index-Problem)
+      const snap = await db.collection('users').get();
+      const match = snap.docs.find(d => (d.data().email || '').toLowerCase() === email);
+      if (!match) { showToast('Nutzer nicht gefunden – muss sich erst registrieren!'); return; }
+
+      await db.collection('users').doc(match.id).update({ letter });
+      document.getElementById('admin-assign-email').value = '';
+      document.getElementById('admin-assign-letter').value = '';
+      showToast('Buchstabe ' + letter + ' zugewiesen ✓');
+      loadAdminPage();
+    }
+
+    async function loadLetterAssignments() {
+      const snap = await db.collection('users').get();
+      const el = document.getElementById('letter-assignment-list');
+      const users = snap.docs.map(d => d.data()).filter(u => u.letter);
+      if (!users.length) {
+        el.innerHTML = '<p style="font-size:0.8rem;color:#737973;">Noch keine Zuweisungen</p>';
+        return;
+      }
+      el.innerHTML = users.map(u => `
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e5e2dd;">
+      <span style="background:#1B3022;color:#f1c40f;border-radius:6px;padding:3px 10px;font-weight:700;font-family:'Newsreader',serif;font-size:1rem;">${u.letter}</span>
+      <span style="font-size:0.85rem;color:#1c1c19;flex:1;">${u.displayName}</span>
+      <span style="font-size:0.75rem;color:#737973;">${u.email}</span>
+    </div>`).join('');
+    }
+
+    async function resetCounter() {
+      if (!confirm('Teilnehmer-Counter auf 0 zurücksetzen?')) return;
+      try {
+        const snap = await db.collection('users').get();
+        const batch = db.batch();
+        snap.docs.forEach(doc => batch.update(doc.ref, { isParticipating: false }));
+        await batch.commit();
+        showToast('Counter zurückgesetzt ✓');
+        loadStats();
+      } catch (e) { showToast('Fehler: ' + e.message); }
+    }
+
+    async function resetParticipants() {
+      if (!confirm('Wirklich alle getrunkenen Getränke löschen? Das kann nicht rückgängig gemacht werden!')) return;
+      try {
+        showToast('Wird zurückgesetzt…');
+
+        // Alle drinks wieder auf "nicht gefunden" setzen
+        const drinksSnap = await db.collection('drinks').get();
+        const batch1 = db.batch();
+        drinksSnap.docs.forEach(doc => batch1.update(doc.ref, { found: false, foundBy: null }));
+        await batch1.commit();
+
+        // Alle consumed_drinks löschen
+        const consumedSnap = await db.collection('consumed_drinks').get();
+        const batch2 = db.batch();
+        consumedSnap.docs.forEach(doc => batch2.delete(doc.ref));
+        await batch2.commit();
+
+        showToast('Alle getrunkenen Getränke gelöscht ✓');
+        loadMyDrinks();
+        loadStats();
+      } catch (e) { showToast('Fehler: ' + e.message); }
+    }
+
+    async function resetHiddenDrinks() {
+      if (!confirm('Wirklich alle versteckten Getränke löschen? Das kann nicht rückgängig gemacht werden!')) return;
+      try {
+        showToast('Wird gelöscht…');
+        const snap = await db.collection('drinks').get();
+        const batch = db.batch();
+        snap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        showToast('Alle versteckten Getränke gelöscht ✓');
+        loadMyDrinks();
+      } catch (e) { showToast('Fehler: ' + e.message); }
+    }
+
+    async function adminPasswordReset() {
+      const email = document.getElementById('admin-reset-email').value.trim();
+      if (!email) return;
+      try { await auth.sendPasswordResetEmail(email); showToast('Reset-E-Mail gesendet an ' + email); }
+      catch (e) { showToast('Fehler: ' + e.message); }
+    }
+
+    // ================================================
+    // ARCHIV
+    // ================================================
+    async function loadArchive() {
+      const el = document.getElementById('archive-list');
+      if (!el) return;
+      el.innerHTML = '<div style="text-align:center;padding:24px;color:#737973;font-size:0.85rem;">Lädt…</div>';
+
+      try {
+        const snap = await db.collection('archive').orderBy('year', 'desc').get();
+        if (snap.empty) {
+          el.innerHTML = '<div style="text-align:center;padding:40px 0;color:#737973;font-size:0.85rem;"><span style="font-size:2.5rem;display:block;margin-bottom:10px;">📦</span>Noch kein Archiv vorhanden.</div>';
+          return;
+        }
+
+        el.innerHTML = snap.docs.map(doc => {
+          const d = doc.data();
+          const MEDALS = ['🥇','🥈','🥉'];
+          const rows = (d.entries || []).map((e, i) => `
+            <div onclick="openArchiveDetail('${doc.id}', ${i})"
+              style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #e5e2dd;cursor:pointer;${i===0?'':''}">
+              <span style="font-size:${i<3?'1.3rem':'1rem'};width:26px;text-align:center;color:${i<3?'inherit':'#737973'};">${MEDALS[i]||'#'+(i+1)}</span>
+              <div style="width:36px;height:36px;border-radius:50%;${e.avatar ? 'background:#f4f1ec;border:1px solid #e5e2dd;' : 'background:linear-gradient(135deg,#1B3022,#4d6453);color:#f1c40f;font-family:\'Newsreader\',serif;font-size:1rem;font-weight:800;'}display:flex;align-items:center;justify-content:center;flex-shrink:0;">${e.avatar ? `<span style="font-size:1.3rem;">${e.avatar}</span>` : (e.name||'?').charAt(0).toUpperCase()}</div>
+              <div style="flex:1;">
+                <div style="font-weight:600;font-size:0.9rem;color:#1c1c19;">${e.name}</div>
+                <div style="font-size:0.72rem;color:#737973;">${e.drinkCount}/10 Getränke · ⌀ ${e.avgPace||'–'} Min/Bier</div>
+              </div>
+              <div style="font-family:'Newsreader',serif;font-size:1.15rem;font-weight:800;color:#061b0e;">${(e.totalAlc||0).toFixed(1)}g</div>
+              <span class="material-symbols-outlined" style="font-size:1.1rem;color:#c3c8c1;">chevron_right</span>
+            </div>`).join('');
+
+          return `<div style="background:#fff;border-radius:16px;border:1px solid #e5e2dd;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(6,27,14,0.05);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+              <h3 style="font-family:'Newsreader',serif;font-size:1.4rem;font-weight:800;color:#061b0e;">🍺 ${d.year}</h3>
+              <span style="font-size:0.72rem;background:#f0ede8;color:#737973;border-radius:100px;padding:4px 10px;font-weight:600;">${(d.entries||[]).length} Teilnehmer</span>
+            </div>
+            ${rows}
+          </div>`;
+        }).join('');
+      } catch(e) {
+        el.innerHTML = '<div style="text-align:center;padding:24px;color:#ba1a1a;font-size:0.85rem;">Fehler beim Laden: ' + e.message + '</div>';
+      }
+    }
+
+    function openArchiveDetail(docId, entryIndex) {
+      db.collection('archive').doc(docId).get().then(doc => {
+        if (!doc.exists) return;
+        const d = doc.data();
+        const e = (d.entries || [])[entryIndex];
+        if (!e) return;
+        const MEDALS = ['🥇','🥈','🥉'];
+        const medal = MEDALS[entryIndex] || '#' + (entryIndex + 1);
+        const drinksHtml = (e.drinks || []).map(drink => `
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #e5e2dd;">
+            <div style="width:36px;height:36px;border-radius:8px;background:#f0ede8;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">${drink.isZonk ? '🫗' : '🍺'}</div>
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:0.88rem;color:#1c1c19;">${drink.drinkName}</div>
+              <div style="font-size:0.72rem;color:#737973;">${drink.code} · von ${drink.ownerName}</div>
+            </div>
+            <div style="font-family:'Newsreader',serif;font-size:0.95rem;font-weight:700;color:#061b0e;">${drink.isZonk ? '0g' : (drink.pureAlcohol||0).toFixed(2)+'g'}</div>
+          </div>`).join('');
+
+        document.getElementById('archive-detail-content').innerHTML = `
+          <div style="text-align:center;margin-bottom:20px;">
+            <div style="width:72px;height:72px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;${e.avatar ? 'background:#f4f1ec;border:2px solid #e5e2dd;font-size:2.2rem;' : 'background:linear-gradient(135deg,#1B3022,#4d6453);color:#f1c40f;font-family:\'Newsreader\',serif;font-size:2rem;font-weight:800;border:3px solid #f1c40f;'}">${e.avatar || (e.name||'?').charAt(0).toUpperCase()}</div>
+            <div style="font-size:1.5rem;margin-bottom:4px;">${medal}</div>
+            <div style="font-family:'Newsreader',serif;font-size:1.5rem;font-weight:800;color:#061b0e;">${e.name}</div>
+            <div style="font-size:0.8rem;color:#737973;margin-top:4px;">Osterbiersuche ${d.year}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+            <div style="background:#f0ede8;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin-bottom:4px;">Reiner Alkohol</div>
+              <div style="font-family:'Newsreader',serif;font-size:1.6rem;font-weight:800;color:#061b0e;">${(e.totalAlc||0).toFixed(1)}g</div>
+            </div>
+            <div style="background:#f0ede8;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin-bottom:4px;">Getränke</div>
+              <div style="font-family:'Newsreader',serif;font-size:1.6rem;font-weight:800;color:#061b0e;">${e.drinkCount}/10</div>
+            </div>
+            <div style="background:#f0ede8;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#737973;margin-bottom:4px;">Ø Tempo</div>
+              <div style="font-family:'Newsreader',serif;font-size:1.2rem;font-weight:800;color:#061b0e;">${e.avgPace||'–'} Min/Bier</div>
+            </div>
+            <div style="background:#1B3022;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:rgba(241,196,15,0.7);margin-bottom:4px;">Platz</div>
+              <div style="font-family:'Newsreader',serif;font-size:1.6rem;font-weight:800;color:#f1c40f;">${medal}</div>
+            </div>
+          </div>
+          <div style="font-size:0.8rem;font-weight:700;color:#737973;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Getränke-Liste</div>
+          ${drinksHtml || '<div style="color:#737973;font-size:0.85rem;padding:12px 0;">Keine Detaildaten gespeichert.</div>'}`;
+
+        openModal('modal-archive-detail');
+      });
+    }
+
+    async function archiveCurrentLeaderboard() {
+      const year = new Date().getFullYear();
+      if (!confirm('Das aktuelle Leaderboard als Archiv für ' + year + ' speichern? Bestehende Archivdaten für dieses Jahr werden überschrieben.')) return;
+
+      showToast('Wird archiviert…');
+      try {
+        // Alle consumed_drinks laden
+        const consumedSnap = await db.collection('consumed_drinks').get();
+        const byUser = {};
+        consumedSnap.docs.forEach(d => {
+          const u = d.data();
+          if (!byUser[u.userId]) byUser[u.userId] = { name: u.userName, uid: u.userId, drinks: [], times: [] };
+          byUser[u.userId].drinks.push({
+            drinkName: u.drinkName, code: u.code, ownerName: u.ownerName,
+            pureAlcohol: u.pureAlcohol || 0, isZonk: u.isZonk || false
+          });
+          if (u.consumedAt) byUser[u.userId].times.push(u.consumedAt.toMillis());
+        });
+
+        // User-Namen aus Cache/DB
+        for (const uid of Object.keys(byUser)) {
+          if (!allUsersCache[uid]) {
+            const uSnap = await db.collection('users').doc(uid).get();
+            allUsersCache[uid] = uSnap.exists ? uSnap.data() : {};
+          }
+          byUser[uid].name = allUsersCache[uid].displayName || byUser[uid].name;
+        }
+
+        // Pace berechnen
+        const entries = Object.values(byUser).map(u => {
+          const totalAlc = u.drinks.reduce((s, d) => s + (d.pureAlcohol || 0), 0);
+          const beerTimes = u.times.sort((a,b) => a-b);
+          let avgPace = null;
+          if (beerTimes.length >= 2) {
+            const gaps = [];
+            for (let i = 1; i < beerTimes.length; i++) gaps.push(beerTimes[i] - beerTimes[i-1]);
+            avgPace = Math.round((gaps.reduce((a,b)=>a+b,0) / gaps.length) / 60000);
+          }
+          return {
+            name: u.name, uid: u.uid,
+            avatar: allUsersCache[u.uid]?.photoURL || null,
+            totalAlc, drinkCount: u.drinks.length,
+            avgPace, drinks: u.drinks
+          };
+        }).sort((a, b) => b.totalAlc - a.totalAlc);
+
+        await db.collection('archive').doc(String(year)).set({ year, archivedAt: firebase.firestore.FieldValue.serverTimestamp(), entries });
+        showToast('Archiviert! ' + year + ' gespeichert ✓');
+        loadArchive();
+      } catch(e) {
+        showToast('Fehler: ' + e.message);
+      }
+    }
+
+    // ================================================
+    // MODALS
+    // ================================================
+    function openRulerImage() {
+      const vid = document.getElementById('ruler-video');
+      const img = document.getElementById('ruler-img');
+      if (vid.style.display !== 'none' && vid.src) {
+        openVideoFullscreen(vid.src);
+      } else if (img.style.display !== 'none' && img.src) {
+        openImageFullscreen(img.src);
+      }
+    }
+
+    function openImageFullscreen(src) {
+      if (!src) return;
+      const img = document.getElementById('ruler-img-fullscreen');
+      const vid = document.getElementById('ruler-video-fullscreen');
+      // Video stoppen falls noch läuft
+      vid.pause(); vid.src = ''; vid.style.display = 'none';
+      // Bild zeigen
+      img.src = src;
+      img.style.display = 'block';
+      openModal('modal-ruler-img');
+    }
+
+    let pingPongInterval = null;
+
+    function openVideoFullscreen(src) {
+      if (!src) return;
+      const img = document.getElementById('ruler-img-fullscreen');
+      const vid = document.getElementById('ruler-video-fullscreen');
+
+      img.style.display = 'none';
+      vid.src = src;
+      vid.style.display = 'block';
+
+      // Wichtig: Diese Attribute sorgen für den Loop
+      vid.loop = true;
+      vid.muted = true; // Viele Browser erlauben Autoplay nur, wenn muted=true
+
+      vid.play().catch(err => console.log("Autoplay blockiert:", err));
+
+      openModal('modal-ruler-img');
+    }
+
+    // Und beim Schließen das Video stoppen
+    function closeMediaModal() {
+      const vid = document.getElementById('ruler-video-fullscreen');
+      vid.pause();
+      vid.src = "";
+      closeModal('modal-ruler-img');
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    document.querySelectorAll('.modal-overlay').forEach(o => {
+      o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+    });
+
+    // ================================================
+    // TOAST
+    // ================================================
+    let toastTimer;
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.add('hidden'), 3000);
+    }
+
+    // ================================================
+    // KONFETTI
+    // ================================================
+
+    let easterEggTaps = 0;
+    let easterEggTimer = null;
+
+    function handleEasterEggTap() {
+      easterEggTaps++;
+      const btn = document.getElementById('easter-egg-btn');
+      // Ei wird bei jedem Tap etwas sichtbarer
+      btn.style.opacity = Math.min(0.15 + easterEggTaps * 0.17, 1).toString();
+      // Timer zurücksetzen – man muss 5x schnell tippen
+      clearTimeout(easterEggTimer);
+      if (easterEggTaps >= 5) {
+        easterEggTaps = 0;
+        btn.style.opacity = '0.15';
+        togglePinkMode();
+        return;
+      }
+      easterEggTimer = setTimeout(() => {
+        easterEggTaps = 0;
+        if (btn) btn.style.opacity = '0.15';
+      }, 2000);
+    }
+
+    function togglePinkMode() {
+      const isActive = document.body.classList.contains('pink-excess-mode');
+      if (isActive) {
+        // Deaktivieren
+        document.body.classList.remove('pink-excess-mode');
+        document.querySelectorAll('.glitter-particle, .butterfly').forEach(p => p.remove());
+        localStorage.removeItem('pinkExcessMode');
+        showToast('Pink Excess Mode deaktiviert 😌');
+        return;
+      }
+      // Warning-Dialog
+      const warning = document.createElement('div');
+      warning.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+      warning.id = 'pink-warning-overlay';
+      warning.innerHTML = `
+        <div style="background:#fff;border-radius:20px;padding:28px 24px;max-width:320px;text-align:center;">
+          <p style="font-size:2rem;margin-bottom:12px;">⚠️💖</p>
+          <p style="font-family:'Newsreader',serif;font-size:1.3rem;font-weight:800;color:#c2185b;margin-bottom:8px;">Warning.</p>
+          <p style="font-size:0.9rem;color:#434843;margin-bottom:20px;line-height:1.5;">Do you really want to go down this path?<br><span style="font-size:0.78rem;color:#737973;">Resets automatically after 5 minutes.</span></p>
+          <div style="display:flex;gap:10px;">
+            <button onclick="document.getElementById('pink-warning-overlay').remove()" style="flex:1;background:#f0ede8;color:#1c1c19;border:none;border-radius:8px;padding:12px;cursor:pointer;font-weight:600;font-family:'Work Sans',sans-serif;">No thanks</button>
+            <button onclick="confirmPinkMode()" style="flex:1;background:linear-gradient(135deg,#e91e8c,#c2185b);color:#fff;border:none;border-radius:8px;padding:12px;cursor:pointer;font-weight:700;font-family:'Work Sans',sans-serif;">YES 💖</button>
+          </div>
+        </div>`;
+      document.body.appendChild(warning);
+    }
+
+    function confirmPinkMode() {
+      const overlay = document.getElementById('pink-warning-overlay');
+      if (overlay) overlay.remove();
+      // Pink Mode aktivieren
+      document.body.classList.add('pink-excess-mode');
+      localStorage.setItem('pinkExcessMode', '1');
+      startGlitterParticles();
+      showToast('💖 Pink Excess Mode aktiviert! Läuft 5 Min.');
+      shootKonfetti();
+      // Automatisch nach 5 Minuten zurücksetzen
+      setTimeout(() => {
+        document.body.classList.remove('pink-excess-mode');
+        localStorage.removeItem('pinkExcessMode');
+        document.querySelectorAll('.glitter-particle, .butterfly').forEach(p => p.remove());
+        showToast('Pink Excess Mode abgelaufen 😌');
+      }, 5 * 60 * 1000);
+    }
+
+    let butterflyInterval = null;
+
+    function startGlitterParticles() {
+      document.querySelectorAll('.glitter-particle').forEach(p => p.remove());
+      const pieces = ['✨', '💖', '⭐', '💫', '🌟', '💕', '🌸', '💎', '👑', '🦋', '💜', '🩷'];
+      for (let i = 0; i < 30; i++) {
+        const el = document.createElement('div');
+        el.className = 'glitter-particle';
+        el.textContent = pieces[Math.floor(Math.random() * pieces.length)];
+        el.style.cssText = `left:${Math.random() * 100}%;top:-20px;animation-duration:${4 + Math.random() * 6}s;animation-delay:${Math.random() * 6}s;font-size:${0.6 + Math.random() * 0.7}rem;`;
+        document.body.appendChild(el);
+      }
+      // Nur ein Schmetterling auf einmal, alle 12 Sekunden
+      if (butterflyInterval) clearInterval(butterflyInterval);
+      setTimeout(() => spawnButterfly(), 2000);
+      butterflyInterval = setInterval(() => {
+        if (document.body.classList.contains('theme-glitter') || document.body.classList.contains('pink-excess-mode')) {
+          // Nur spawnen wenn kein Schmetterling bereits fliegt
+          if (!document.querySelector('.butterfly')) spawnButterfly();
+        } else {
+          clearInterval(butterflyInterval);
+          butterflyInterval = null;
+        }
+      }, 12000);
+    }
+
+    function spawnButterfly() {
+      // Sicherheitscheck: max. 1 Schmetterling gleichzeitig
+      if (document.querySelector('.butterfly')) return;
+      const el = document.createElement('div');
+      el.className = 'butterfly';
+      const top = 15 + Math.random() * 60;
+      el.style.cssText = `top:${top}vh;animation-duration:${6 + Math.random() * 2}s;`;
+      el.textContent = '🦋';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 9000);
+    }
+
+    function shootRitter() {
+      const el = document.createElement('div');
+      el.className = 'ritter-container';
+      el.innerHTML = '<div class="ritter-inner">🏇👑</div>';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 4000);
+    }
+
+    function shootZonk() {
+      // Roter Blitz-Overlay
+      const flash = document.createElement('div');
+      flash.className = 'zonk-flash';
+      document.body.appendChild(flash);
+      setTimeout(() => flash.remove(), 800);
+      // Fallende Tränen/Kreuze
+      const c = document.getElementById('zonk-container');
+      const pieces = ['😭', '💀', '❌', '😱', '🚫', '😩', '💔', '☠️'];
+      for (let i = 0; i < 30; i++) {
+        const el = document.createElement('div');
+        el.className = 'zonk-piece';
+        el.textContent = pieces[Math.floor(Math.random() * pieces.length)];
+        el.style.cssText = `left:${Math.random() * 100}%;font-size:${1.2 + Math.random() * 1.2}rem;animation-duration:${1.8 + Math.random() * 1.5}s;animation-delay:${Math.random() * 0.4}s;`;
+        c.appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+      }
+    }
+
+    function shootKonfetti() {
+      const c = document.getElementById('konfetti');
+      const colors = ['#f1c40f', '#1B3022', '#ffbf00', '#4d6453', '#fff8e1', '#2d5a40'];
+      for (let i = 0; i < 50; i++) {
+        const el = document.createElement('div');
+        el.className = 'konfetti-piece';
+        el.style.cssText = `left:${Math.random() * 100}%;background:${colors[Math.floor(Math.random() * colors.length)]};border-radius:${Math.random() > .5 ? '50%' : '2px'};width:${6 + Math.random() * 8}px;height:${6 + Math.random() * 8}px;animation-duration:${1.5 + Math.random() * 2}s;animation-delay:${Math.random() * .4}s;`;
+        c.appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+      }
+    }
+
+    // ================================================
+    // VIDEO LOOP FIX
+    // ================================================
+    // Browser pausieren Videos manchmal wenn der Tab inaktiv war.
+    // Beim Zurückkehren alle sichtbaren Videos neu starten.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        document.querySelectorAll('video[loop]').forEach(v => {
+          if (v.paused && v.src) {
+            v.play().catch(() => {});
+          }
+        });
+      }
+    });
+
+    // Fallback: Falls ended-Event trotzdem feuert, nochmal von vorne
+    document.addEventListener('ended', e => {
+      if (e.target.tagName === 'VIDEO' && e.target.loop) {
+        e.target.currentTime = 0;
+        e.target.play().catch(() => {});
+      }
+    }, true);
+
+    // ================================================
+    // SERVICE WORKER
+    // ================================================
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { });
+  </script>
+</body>
+
+</html>
